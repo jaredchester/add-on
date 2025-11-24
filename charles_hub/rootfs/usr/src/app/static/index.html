@@ -143,7 +143,15 @@
       <input type="text" id="notify_title" placeholder="CHARLES says">
       <label for="notify_tag">Notify tag</label>
       <input type="text" id="notify_tag" placeholder="charles_stream">
-      <div class="note">Category toggles use the state JSON; UI will mirror current values.</div>
+      <label>Notify categories</label>
+      <div class="toggle"><input type="checkbox" id="cat_weather"><label for="cat_weather">Weather</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_system"><label for="cat_system">System</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_vacuum"><label for="cat_vacuum">Vacuum</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_lighting"><label for="cat_lighting">Lighting</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_arrivals"><label for="cat_arrivals">Arrivals</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_people"><label for="cat_people">People</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_musings"><label for="cat_musings">Musings</label></div>
+      <div class="toggle"><input type="checkbox" id="cat_jokes"><label for="cat_jokes">Jokes</label></div>
       <button onclick="saveState()">Save routing</button>
     </div>
     <div class="card">
@@ -168,7 +176,11 @@
       <h2>Feed</h2>
       <div class="note" id="feed-meta">Loading feed…</div>
       <div class="feed" id="feed"></div>
-      <button class="secondary" onclick="loadFeed()" style="margin-top:8px;">Refresh feed</button>
+      <div class="note" id="unread-meta">Unread: 0</div>
+      <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="secondary" onclick="loadFeed()">Refresh feed</button>
+        <button class="secondary" onclick="markRead()">Mark read</button>
+      </div>
     </div>
   </div>
   <div class="status" id="status">Loading…</div>
@@ -194,10 +206,29 @@
       document.getElementById('notify_service').value = st.notify_service || '';
       document.getElementById('notify_title').value = st.notify_title || '';
       document.getElementById('notify_tag').value = st.notify_tag || '';
-      document.getElementById('feed-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
+      const cats = st.categories || {};
+      document.getElementById('cat_weather').checked = cats.weather ?? true;
+      document.getElementById('cat_system').checked = cats.system ?? true;
+      document.getElementById('cat_vacuum').checked = cats.vacuum ?? true;
+      document.getElementById('cat_lighting').checked = cats.lighting ?? true;
+      document.getElementById('cat_arrivals').checked = cats.arrivals ?? true;
+      document.getElementById('cat_people').checked = cats.people ?? true;
+      document.getElementById('cat_musings').checked = cats.musings ?? true;
+      document.getElementById('cat_jokes').checked = cats.jokes ?? true;
+      document.getElementById('unread-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
     }
 
     function collectState() {
+      const categories = {
+        weather: document.getElementById('cat_weather').checked,
+        system: document.getElementById('cat_system').checked,
+        vacuum: document.getElementById('cat_vacuum').checked,
+        lighting: document.getElementById('cat_lighting').checked,
+        arrivals: document.getElementById('cat_arrivals').checked,
+        people: document.getElementById('cat_people').checked,
+        musings: document.getElementById('cat_musings').checked,
+        jokes: document.getElementById('cat_jokes').checked
+      };
       return {
         persona_prompt: document.getElementById('persona').value.trim(),
         route_default: document.getElementById('route_default').value,
@@ -206,7 +237,8 @@
         notifications_enabled: document.getElementById('notifications_enabled').checked,
         notify_service: document.getElementById('notify_service').value.trim(),
         notify_title: document.getElementById('notify_title').value.trim(),
-        notify_tag: document.getElementById('notify_tag').value.trim()
+        notify_tag: document.getElementById('notify_tag').value.trim(),
+        categories
       };
     }
 
@@ -240,6 +272,20 @@
       }
     }
 
+    const fmtTime = (raw) => {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+      }
+      const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw.trim());
+      if (!m) return raw;
+      let h = parseInt(m[1], 10);
+      const min = m[2];
+      const ampm = h >= 12 ? 'pm' : 'am';
+      h = h % 12 || 12;
+      return `${h}:${min} ${ampm}`;
+    };
+
     async function loadFeed() {
       try {
         const res = await api('api/feed');
@@ -250,7 +296,17 @@
           feed.innerHTML = '<div class="note">No entries.</div>';
           return;
         }
-        feed.innerHTML = data.entries.map(e => `<div class="entry">${e}</div>`).join('');
+        const entries = data.entries.slice().reverse().map(line => {
+          const parts = line.split(' · ');
+          if (parts.length >= 3) {
+            const [ts, tag, ...rest] = parts;
+            const msg = rest.join(' · ');
+            const t = fmtTime(ts);
+            return `<div class="entry"><span style="color:#eaeaea;margin-right:6px;">@ ${t}</span><span style="background:rgba(50,255,140,0.18);color:#f8f8f8;padding:2px 4px;border-radius:3px;font-size:0.75rem;margin-right:6px;">${tag}</span><span>${msg}</span></div>`;
+          }
+          return `<div class="entry">${line}</div>`;
+        }).join('');
+        feed.innerHTML = entries;
       } catch (err) {
         console.error(err);
         setStatus('Failed to load feed.', false);
@@ -277,6 +333,18 @@
       } catch (err) {
         console.error(err);
         setStatus('Emit failed.', false);
+      }
+    }
+
+    async function markRead() {
+      try {
+        const res = await api('api/mark_read', { method: 'POST' });
+        if (!res.ok) throw new Error(`mark_read failed: ${res.status}`);
+        setStatus('Marked read.');
+        loadState();
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to mark read.', false);
       }
     }
 
