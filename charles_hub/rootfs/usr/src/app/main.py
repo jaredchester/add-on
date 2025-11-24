@@ -78,6 +78,8 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         },
         "quiet_hours_start": options.get("quiet_hours_start", "22:00"),
         "quiet_hours_end": options.get("quiet_hours_end", "07:00"),
+        "quiet_exempt_categories": options.get("quiet_exempt_categories", ["weather", "system"]),
+        "weather_min_gap": options.get("weather_min_gap", 3600),
         "musings_interval_min": options.get("musings_interval_min", 60),
         "musings_interval_max": options.get("musings_interval_max", 180),
         "musings_daily_cap": options.get("musings_daily_cap", 4),
@@ -93,6 +95,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "joke_count_date": "",
         "musing_count_today": 0,
         "joke_count_today": 0,
+        "last_weather_time": 0.0,
         "last_entry_key": "",
         "last_entry_time": 0.0,
         "unread_count": 0,
@@ -253,6 +256,11 @@ async def process_emit(
         last_ts = float(state.get("last_entry_time", 0.0))
         resolved_route = default_route if route_raw == "default" else route_raw
         now_ts = time.time()
+        if category.lower() == "weather":
+            min_gap = int(state.get("weather_min_gap", 0))
+            last_weather = float(state.get("last_weather_time", 0.0))
+            if min_gap > 0 and (now_ts - last_weather) < min_gap:
+                return {"status": "throttled", "route": resolved_route}
         current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
         if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
             return {"status": "throttled", "route": resolved_route}
@@ -274,10 +282,14 @@ async def process_emit(
         and resolved_route in {"feed", "both"}
         and feed_category_allowed(category)
     )
+    quiet = in_quiet_hours(time.time())
+    quiet_exempt = [c.lower() for c in state.get("quiet_exempt_categories", [])]
+    quiet_allows_notify = quiet and (category.lower() in quiet_exempt)
     send_notify = (
         state.get("notifications_enabled", True)
         and resolved_route in {"notify", "both"}
         and category_allowed(category)
+        and (not quiet or quiet_allows_notify)
     )
 
     feed_line = None
@@ -298,6 +310,8 @@ async def process_emit(
     async with state_lock:
         state["last_entry_key"] = current_key
         state["last_entry_time"] = now_ts
+        if category.lower() == "weather":
+            state["last_weather_time"] = now_ts
         if send_notify:
             unread_entry = message_text[:140]
             existing = state.get("unread_log", [])

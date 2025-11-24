@@ -221,6 +221,10 @@
       <input type="time" id="quiet_start" value="22:00">
       <label for="quiet_end">End</label>
       <input type="time" id="quiet_end" value="07:00">
+      <div class="toggle"><input type="checkbox" id="quiet_weather"><label for="quiet_weather">Allow weather during quiet hours</label></div>
+      <div class="toggle"><input type="checkbox" id="quiet_system"><label for="quiet_system">Allow system during quiet hours</label></div>
+      <label for="weather_gap">Weather min gap (seconds)</label>
+      <input type="number" id="weather_gap" min="0" step="60">
       <button onclick="saveState()">Save routing</button>
     </div>
     <div class="card">
@@ -301,6 +305,10 @@
       document.getElementById('notify_tag').value = st.notify_tag || '';
       document.getElementById('quiet_start').value = st.quiet_hours_start || '22:00';
       document.getElementById('quiet_end').value = st.quiet_hours_end || '07:00';
+      const quietExempt = st.quiet_exempt_categories || [];
+      document.getElementById('quiet_weather').checked = quietExempt.includes('weather');
+      document.getElementById('quiet_system').checked = quietExempt.includes('system');
+      document.getElementById('weather_gap').value = st.weather_min_gap ?? 0;
       const cats = st.categories || {};
       document.getElementById('cat_weather').checked = cats.weather ?? true;
       document.getElementById('cat_system').checked = cats.system ?? true;
@@ -365,6 +373,11 @@
         notify_tag: document.getElementById('notify_tag').value.trim(),
         quiet_hours_start: document.getElementById('quiet_start').value || '22:00',
         quiet_hours_end: document.getElementById('quiet_end').value || '07:00',
+        quiet_exempt_categories: [
+          ...(document.getElementById('quiet_weather').checked ? ['weather'] : []),
+          ...(document.getElementById('quiet_system').checked ? ['system'] : [])
+        ],
+        weather_min_gap: Number(document.getElementById('weather_gap').value) || 0,
         categories,
         feed_categories,
         musing_pool: document.getElementById('musing_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
