@@ -17,12 +17,13 @@ DATA_PATH = Path("/data/state.json")
 OPTIONS_PATH = Path("/data/options.json")
 FEED_LOG_PATH = Path("/config/www/charles_feed.log")
 STATIC_DIR = Path(__file__).parent / "static"
+ROOT_PATH = os.getenv("CHARLES_ROOT_PATH", "")
 DEFAULT_PROMPT = (
     "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – "
     "a sardonic, witty butler. Reply in one short sentence."
 )
 
-app = FastAPI(title="CHARLES Hub API", openapi_url=None, docs_url=None)
+app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 state_lock = asyncio.Lock()

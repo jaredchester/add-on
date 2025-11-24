@@ -175,7 +175,10 @@
 
   <script>
     let currentState = {};
-    const api = (path, opts={}) => fetch(path, opts);
+    const api = (path, opts={}) => {
+      const url = path.startsWith('/') ? '.' + path : path;
+      return fetch(url, opts);
+    };
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
       el.textContent = txt;
@@ -209,7 +212,7 @@
 
     async function saveState() {
       try {
-        const res = await api('/api/state', {
+        const res = await api('api/state', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(collectState())
@@ -226,7 +229,7 @@
 
     async function loadState() {
       try {
-        const res = await api('/api/state');
+        const res = await api('api/state');
         if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
         currentState = await res.json();
         hydrate(currentState);
@@ -239,7 +242,7 @@
 
     async function loadFeed() {
       try {
-        const res = await api('/api/feed');
+        const res = await api('api/feed');
         if (!res.ok) throw new Error(`Feed fetch failed: ${res.status}`);
         const data = await res.json();
         const feed = document.getElementById('feed');
@@ -262,7 +265,7 @@
         route: document.getElementById('emit_route').value || 'default'
       };
       try {
-        const res = await api('/api/emit', {
+        const res = await api('api/emit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

@@ -2,9 +2,11 @@
 # Start the CHARLES Hub API (FastAPI/uvicorn)
 set -euo pipefail
 
-# Listen on configured ingress port
+# Listen on configured ingress port and set root path for uvicorn
 PORT="$(bashio::addon.ingress_port)"
+ROOT_PATH="$(bashio::addon.ingress_entry)"
 
-bashio::log.info "Starting CHARLES Hub API on port ${PORT}"
+bashio::log.info "Starting CHARLES Hub API on port ${PORT} with root path ${ROOT_PATH}"
 cd /usr/src/app
-exec /opt/venv/bin/uvicorn main:app --host 0.0.0.0 --port "${PORT}" --proxy-headers
+export CHARLES_ROOT_PATH="${ROOT_PATH}"
+exec /opt/venv/bin/uvicorn main:app --host 0.0.0.0 --port "${PORT}" --proxy-headers --root-path "${ROOT_PATH}"
