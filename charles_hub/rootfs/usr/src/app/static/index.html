@@ -226,12 +226,10 @@
         </tbody>
       </table>
       <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Quiet Hours</h3>
-      <label for="quiet_start">Start</label>
-      <input type="time" id="quiet_start" value="22:00">
-      <label for="quiet_end">End</label>
-      <input type="time" id="quiet_end" value="07:00">
-      <label for="weather_gap">Weather min gap (seconds)</label>
-      <input type="number" id="weather_gap" min="0" step="60">
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+        <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
+        <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
+      </div>
       <button onclick="saveState()">Save routing</button>
     </div>
     <div class="card">
