@@ -1,19 +1,23 @@
-name: "CHARLES Hub"
-version: "0.3.0"
-slug: "charles_hub"
-description: "Minimal CHARLES persona add-on with a single prompt field."
+# CHARLES persona minimal add-on
+name: CHARLES Hub
+version: "0.0.1"
+slug: charles_hub
+description: Minimal CHARLES persona prompt holder
 arch:
+  - armhf
+  - armv7
   - aarch64
   - amd64
-  - armv7
+  - i386
 startup: services
+init: false
 boot: auto
 ingress: false
 ports: {}
-homeassistant_api: false
-hassio_api: false
-map: []
+map:
+  - share:rw
 options:
-  persona_prompt: "You are CHARLES – the Chester House Automated Residential Liaison & Executive System."
+  persona_prompt: "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – a sardonic, witty butler. Reply in one short sentence."
 schema:
-  persona_prompt: str
+  persona_prompt: "str?"
+image: "ghcr.io/home-assistant/{arch}-addon-charles-hub"

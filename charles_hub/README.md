@@ -1,10 +1,10 @@
-# CHARLES Hub (Minimal)
+# CHARLES Hub (Minimal Persona)
 
-This add-on is a minimal placeholder to store the CHARLES persona prompt in a single text field on the add-on configuration page. The service itself is a stub that just stays running.
+Minimal Home Assistant add-on that only stores a persona prompt and writes it to `/share/charles_persona.txt` on start. Service logs the prompt and exits cleanly.
 
-## Configure
-- Open the add-on in Home Assistant and set **persona_prompt** in the configuration tab. Save and restart.
+## Options
+- `persona_prompt` (string, optional): CHARLES persona text. Defaults to a short prompt.
 
 ## Build/Install
 - Add this repository to Home Assistant Add-on Store.
-- Rebuild/install the **CHARLES Hub** add-on (version 0.3.0).
+- Install/rebuild the add-on. After start, check `/share/charles_persona.txt` for the saved prompt.
