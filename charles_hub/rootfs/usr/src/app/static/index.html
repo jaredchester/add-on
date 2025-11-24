@@ -113,6 +113,29 @@
       color: var(--text);
       font-size: 0.9rem;
     }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 6px 4px;
+      font-size: 0.88rem;
+      color: var(--text);
+    }
+    th {
+      text-align: left;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+    td.checkbox-cell {
+      text-align: center;
+      width: 70px;
+    }
+    td.checkbox-cell input {
+      transform: scale(1.1);
+    }
   </style>
 </head>
 <body>
@@ -123,6 +146,13 @@
       <label for="persona">Prompt</label>
       <textarea id="persona"></textarea>
       <button onclick="saveState()">Save persona</button>
+      <label for="musing_pool" style="margin-top:10px;">Musings (one per line)</label>
+      <textarea id="musing_pool"></textarea>
+      <label for="joke_pool">Jokes (one per line)</label>
+      <textarea id="joke_pool"></textarea>
+      <label for="news_urls">News URLs (one per line)</label>
+      <textarea id="news_urls"></textarea>
+      <button onclick="saveState()">Save pools</button>
     </div>
     <div class="card">
       <h2>Routing & Notify</h2>
@@ -143,24 +173,22 @@
       <input type="text" id="notify_title" placeholder="CHARLES says">
       <label for="notify_tag">Notify tag</label>
       <input type="text" id="notify_tag" placeholder="charles_stream">
-      <label>Notify categories</label>
-      <div class="toggle"><input type="checkbox" id="cat_weather"><label for="cat_weather">Weather</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_system"><label for="cat_system">System</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_vacuum"><label for="cat_vacuum">Vacuum</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_lighting"><label for="cat_lighting">Lighting</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_arrivals"><label for="cat_arrivals">Arrivals</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_people"><label for="cat_people">People</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_musings"><label for="cat_musings">Musings</label></div>
-      <div class="toggle"><input type="checkbox" id="cat_jokes"><label for="cat_jokes">Jokes</label></div>
-      <label>Feed categories</label>
-      <div class="toggle"><input type="checkbox" id="feed_weather"><label for="feed_weather">Weather</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_system"><label for="feed_system">System</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_vacuum"><label for="feed_vacuum">Vacuum</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_lighting"><label for="feed_lighting">Lighting</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_arrivals"><label for="feed_arrivals">Arrivals</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_people"><label for="feed_people">People</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_musings"><label for="feed_musings">Musings</label></div>
-      <div class="toggle"><input type="checkbox" id="feed_jokes"><label for="feed_jokes">Jokes</label></div>
+      <label>Categories</label>
+      <table>
+        <thead>
+          <tr><th>Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Weather</td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td></tr>
+          <tr><td>System</td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td></tr>
+          <tr><td>Vacuum</td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td></tr>
+          <tr><td>Lighting</td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td></tr>
+          <tr><td>Arrivals</td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td></tr>
+          <tr><td>People</td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td></tr>
+          <tr><td>Musings</td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td></tr>
+          <tr><td>Jokes</td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td></tr>
+        </tbody>
+      </table>
       <button onclick="saveState()">Save routing</button>
     </div>
     <div class="card">
