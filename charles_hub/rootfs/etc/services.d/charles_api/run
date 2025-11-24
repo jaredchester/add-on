@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bashio
+#!/command/with-contenv bashio
 # Start the CHARLES Hub API (FastAPI/uvicorn)
 set -euo pipefail
 
