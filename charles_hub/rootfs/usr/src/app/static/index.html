@@ -44,6 +44,7 @@
       border-radius: 10px;
       padding: 14px;
       box-shadow: var(--shadow);
+      align-self: start;
     }
     .card h2 {
       margin: 0 0 10px;
@@ -232,28 +233,6 @@
       <label for="weather_gap">Weather min gap (seconds)</label>
       <input type="number" id="weather_gap" min="0" step="60">
       <button onclick="saveState()">Save routing</button>
-    </div>
-    <div class="card">
-      <h2>Scheduling</h2>
-      <label for="quiet_start">Quiet hours start</label>
-      <input type="time" id="quiet_start" value="22:00">
-      <label for="quiet_end">Quiet hours end</label>
-      <input type="time" id="quiet_end" value="07:00">
-      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Musings</h3>
-      <label for="musing_min">Interval min (minutes)</label>
-      <input type="number" id="musing_min" min="1" step="5">
-      <label for="musing_max">Interval max (minutes)</label>
-      <input type="number" id="musing_max" min="1" step="5">
-      <label for="musing_cap">Daily cap</label>
-      <input type="number" id="musing_cap" min="0" step="1">
-      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Jokes</h3>
-      <label for="joke_min">Interval min (minutes)</label>
-      <input type="number" id="joke_min" min="1" step="5">
-      <label for="joke_max">Interval max (minutes)</label>
-      <input type="number" id="joke_max" min="1" step="5">
-      <label for="joke_cap">Daily cap</label>
-      <input type="number" id="joke_cap" min="0" step="1">
-      <button onclick="saveState()">Save scheduling</button>
     </div>
     <div class="card">
       <h2>Emit Test</h2>
