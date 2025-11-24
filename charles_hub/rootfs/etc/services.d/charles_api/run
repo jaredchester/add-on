@@ -2,8 +2,8 @@
 # Start the CHARLES Hub API (FastAPI/uvicorn)
 set -euo pipefail
 
-# Listen on configured port if present, else 8099.
-PORT="$(bashio::config 'ingress_port' 8099)"
+# Listen on configured ingress port
+PORT="$(bashio::addon.ingress_port)"
 
 bashio::log.info "Starting CHARLES Hub API on port ${PORT}"
 cd /usr/src/app

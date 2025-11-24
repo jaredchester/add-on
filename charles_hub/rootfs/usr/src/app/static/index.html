@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHARLES Hub</title>
+  <style>
+    :root {
+      --bg: #030c0a;
+      --panel: #0d1512;
+      --border: #1f312c;
+      --text: #d8f5e5;
+      --muted: #8aa59b;
+      --accent: #32ff8c;
+      --shadow: 0 0 18px rgba(50, 255, 140, 0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: radial-gradient(circle at 20% 20%, #0b1612, #040805 65%);
+      color: var(--text);
+      font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      line-height: 1.5;
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: 1.3rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      text-shadow: 0 0 12px rgba(50, 255, 140, 0.45);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+    label {
+      display: block;
+      font-size: 0.86rem;
+      color: var(--muted);
+      margin: 8px 0 4px;
+    }
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      background: #0b1311;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+    textarea { min-height: 140px; resize: vertical; }
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0;
+    }
+    button {
+      background: var(--accent);
+      color: #03120b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(38, 195, 106, 0.25);
+      transition: transform 0.08s ease, box-shadow 0.15s ease;
+    }
+    button.secondary {
+      background: #0f1c16;
+      color: var(--text);
+      box-shadow: none;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    .note { font-size: 0.82rem; color: var(--muted); margin-top: 6px; }
+    .feed {
+      max-height: 260px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      background: #0a120f;
+      font-size: 0.9rem;
+    }
+    .feed .entry { margin: 0 0 8px; }
+    .feed .entry:last-child { margin-bottom: 0; }
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(50,255,140,0.08);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>CHARLES Hub</h1>
+  <div class="grid">
+    <div class="card">
+      <h2>Persona</h2>
+      <label for="persona">Prompt</label>
+      <textarea id="persona"></textarea>
+      <button onclick="saveState()">Save persona</button>
+    </div>
+    <div class="card">
+      <h2>Routing & Notify</h2>
+      <label for="route_default">Default route</label>
+      <select id="route_default">
+        <option value="both">both</option>
+        <option value="feed">feed</option>
+        <option value="notify">notify</option>
+        <option value="none">none</option>
+      </select>
+      <label for="throttle_seconds">Throttle seconds</label>
+      <input type="number" id="throttle_seconds" min="0" step="10">
+      <div class="toggle"><input type="checkbox" id="feed_enabled"><label for="feed_enabled">Feed enabled</label></div>
+      <div class="toggle"><input type="checkbox" id="notifications_enabled"><label for="notifications_enabled">Notifications enabled</label></div>
+      <label for="notify_service">Notify service</label>
+      <input type="text" id="notify_service" placeholder="notify.mobile_app_pixel_9">
+      <label for="notify_title">Notify title</label>
+      <input type="text" id="notify_title" placeholder="CHARLES says">
+      <label for="notify_tag">Notify tag</label>
+      <input type="text" id="notify_tag" placeholder="charles_stream">
+      <div class="note">Category toggles use the state JSON; UI will mirror current values.</div>
+      <button onclick="saveState()">Save routing</button>
+    </div>
+    <div class="card">
+      <h2>Emit Test</h2>
+      <label for="emit_topic">Topic</label>
+      <input type="text" id="emit_topic" value="general">
+      <label for="emit_category">Category</label>
+      <input type="text" id="emit_category" value="system">
+      <label for="emit_context">Context</label>
+      <textarea id="emit_context">All systems nominal.</textarea>
+      <label for="emit_route">Route</label>
+      <select id="emit_route">
+        <option value="default">default</option>
+        <option value="both">both</option>
+        <option value="feed">feed</option>
+        <option value="notify">notify</option>
+        <option value="none">none</option>
+      </select>
+      <button onclick="emit()">Send emit</button>
+    </div>
+    <div class="card">
+      <h2>Feed</h2>
+      <div class="note" id="feed-meta">Loading feed…</div>
+      <div class="feed" id="feed"></div>
+      <button class="secondary" onclick="loadFeed()" style="margin-top:8px;">Refresh feed</button>
+    </div>
+  </div>
+  <div class="status" id="status">Loading…</div>
+
+  <script>
+    let currentState = {};
+    const api = (path, opts={}) => fetch(path, opts);
+    const setStatus = (txt, ok=true) => {
+      const el = document.getElementById('status');
+      el.textContent = txt;
+      el.style.background = ok ? 'rgba(50,255,140,0.08)' : 'rgba(255,64,64,0.15)';
+    };
+
+    function hydrate(st) {
+      document.getElementById('persona').value = st.persona_prompt || '';
+      document.getElementById('route_default').value = st.route_default || 'both';
+      document.getElementById('throttle_seconds').value = st.throttle_seconds ?? 0;
+      document.getElementById('feed_enabled').checked = !!st.feed_enabled;
+      document.getElementById('notifications_enabled').checked = !!st.notifications_enabled;
+      document.getElementById('notify_service').value = st.notify_service || '';
+      document.getElementById('notify_title').value = st.notify_title || '';
+      document.getElementById('notify_tag').value = st.notify_tag || '';
+      document.getElementById('feed-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
+    }
+
+    function collectState() {
+      return {
+        persona_prompt: document.getElementById('persona').value.trim(),
+        route_default: document.getElementById('route_default').value,
+        throttle_seconds: Number(document.getElementById('throttle_seconds').value) || 0,
+        feed_enabled: document.getElementById('feed_enabled').checked,
+        notifications_enabled: document.getElementById('notifications_enabled').checked,
+        notify_service: document.getElementById('notify_service').value.trim(),
+        notify_title: document.getElementById('notify_title').value.trim(),
+        notify_tag: document.getElementById('notify_tag').value.trim()
+      };
+    }
+
+    async function saveState() {
+      try {
+        const res = await api('/api/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectState())
+        });
+        if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+        currentState = await res.json();
+        hydrate(currentState);
+        setStatus('Saved settings.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to save settings.', false);
+      }
+    }
+
+    async function loadState() {
+      try {
+        const res = await api('/api/state');
+        if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+        currentState = await res.json();
+        hydrate(currentState);
+        setStatus('Ready.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to load state.', false);
+      }
+    }
+
+    async function loadFeed() {
+      try {
+        const res = await api('/api/feed');
+        if (!res.ok) throw new Error(`Feed fetch failed: ${res.status}`);
+        const data = await res.json();
+        const feed = document.getElementById('feed');
+        if (!data.entries || data.entries.length === 0) {
+          feed.innerHTML = '<div class="note">No entries.</div>';
+          return;
+        }
+        feed.innerHTML = data.entries.map(e => `<div class="entry">${e}</div>`).join('');
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to load feed.', false);
+      }
+    }
+
+    async function emit() {
+      const payload = {
+        topic: document.getElementById('emit_topic').value.trim() || 'general',
+        category: document.getElementById('emit_category').value.trim() || 'system',
+        context: document.getElementById('emit_context').value.trim() || 'All systems nominal.',
+        route: document.getElementById('emit_route').value || 'default'
+      };
+      try {
+        const res = await api('/api/emit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok && res.status !== 202) throw new Error(data.detail || 'Emit failed');
+        setStatus(data.status === 'throttled' ? 'Throttled.' : `Sent via ${data.route}.`);
+        loadFeed();
+      } catch (err) {
+        console.error(err);
+        setStatus('Emit failed.', false);
+      }
+    }
+
+    loadState().then(loadFeed);
+  </script>
+</body>
+</html>

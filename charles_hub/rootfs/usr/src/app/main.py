@@ -9,18 +9,22 @@ from typing import Any, Dict, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # Paths and defaults
 DATA_PATH = Path("/data/state.json")
 OPTIONS_PATH = Path("/data/options.json")
 FEED_LOG_PATH = Path("/config/www/charles_feed.log")
+STATIC_DIR = Path(__file__).parent / "static"
 DEFAULT_PROMPT = (
     "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – "
     "a sardonic, witty butler. Reply in one short sentence."
 )
 
 app = FastAPI(title="CHARLES Hub API", openapi_url=None, docs_url=None)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 state_lock = asyncio.Lock()
 state: Dict[str, Any] = {}
 
@@ -157,6 +161,14 @@ def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
 @app.on_event("startup")
 async def startup() -> None:
     await load_state()
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root_page() -> HTMLResponse:
+    index = STATIC_DIR / "index.html"
+    if not index.exists():
+        raise HTTPException(status_code=404, detail="UI not found")
+    return HTMLResponse(index.read_text(encoding="utf-8"))
 
 
 @app.get("/api/health")
