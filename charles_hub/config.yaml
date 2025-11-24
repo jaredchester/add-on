@@ -1,6 +1,6 @@
 # CHARLES persona minimal add-on
 name: CHARLES Hub
-version: "0.4.2"
+version: "0.4.21"
 slug: charles_hub
 description: CHARLES Hub API (persona + routing state)
 arch:
