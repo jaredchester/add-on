@@ -1,6 +1,6 @@
 # CHARLES persona minimal add-on
 name: CHARLES Hub
-version: "0.1.1"
+version: "0.2.0"
 slug: charles_hub
 description: CHARLES Hub API (persona + routing state)
 arch:
@@ -17,6 +17,8 @@ ports: {}
 map:
   - share:rw
   - config:rw
+homeassistant_api: true
+hassio_api: true
 options:
   persona_prompt: "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – a sardonic, witty butler. Reply in one short sentence."
 schema:

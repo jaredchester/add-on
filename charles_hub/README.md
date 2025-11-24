@@ -1,6 +1,6 @@
-# CHARLES Hub (API Stub)
+# CHARLES Hub (API)
 
-Minimal API add-on to hold CHARLES persona and routing state. Phase 1 provides `/api/state`, `/api/health`, `/api/feed`, `/api/emit` (stub), and `/api/mark_read`. State persists to `/data/state.json` and is seeded from add-on options.
+API add-on to hold CHARLES persona and routing state. Includes `/api/state`, `/api/health`, `/api/feed`, `/api/emit` (with feed/notify), and `/api/mark_read`. State persists to `/data/state.json` and is seeded from add-on options.
 
 ## Options
 - `persona_prompt` (string): CHARLES persona text.
@@ -9,7 +9,7 @@ Minimal API add-on to hold CHARLES persona and routing state. Phase 1 provides `
 - `GET /api/health` — status.
 - `GET/POST /api/state` — read/update stored state.
 - `GET /api/feed` — read `/config/www/charles_feed.log`.
-- `POST /api/emit` — stub emit (Phase 2 will call HA).
+- `POST /api/emit` — generates reply via HA conversation agent, appends to feed, optionally notifies.
 - `POST /api/mark_read` — clears unread counters/logs.
 
 ## Build/Install
