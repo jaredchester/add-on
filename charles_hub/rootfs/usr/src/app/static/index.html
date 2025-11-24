@@ -94,7 +94,7 @@
     button:active { transform: translateY(0); }
     .note { font-size: 0.82rem; color: var(--muted); margin-top: 6px; }
     .feed {
-      max-height: 260px;
+      max-height: 320px;
       overflow-y: auto;
       border: 1px solid var(--border);
       border-radius: 8px;
@@ -152,6 +152,15 @@
       <div class="toggle"><input type="checkbox" id="cat_people"><label for="cat_people">People</label></div>
       <div class="toggle"><input type="checkbox" id="cat_musings"><label for="cat_musings">Musings</label></div>
       <div class="toggle"><input type="checkbox" id="cat_jokes"><label for="cat_jokes">Jokes</label></div>
+      <label>Feed categories</label>
+      <div class="toggle"><input type="checkbox" id="feed_weather"><label for="feed_weather">Weather</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_system"><label for="feed_system">System</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_vacuum"><label for="feed_vacuum">Vacuum</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_lighting"><label for="feed_lighting">Lighting</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_arrivals"><label for="feed_arrivals">Arrivals</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_people"><label for="feed_people">People</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_musings"><label for="feed_musings">Musings</label></div>
+      <div class="toggle"><input type="checkbox" id="feed_jokes"><label for="feed_jokes">Jokes</label></div>
       <button onclick="saveState()">Save routing</button>
     </div>
     <div class="card">
@@ -171,6 +180,16 @@
         <option value="none">none</option>
       </select>
       <button onclick="emit()">Send emit</button>
+    </div>
+    <div class="card">
+      <h2>Prompt Pools</h2>
+      <label for="musing_pool">Musings (one per line)</label>
+      <textarea id="musing_pool"></textarea>
+      <label for="joke_pool">Jokes (one per line)</label>
+      <textarea id="joke_pool"></textarea>
+      <label for="news_urls">News URLs (one per line)</label>
+      <textarea id="news_urls"></textarea>
+      <button onclick="saveState()">Save pools</button>
     </div>
     <div class="card">
       <h2>Feed</h2>
@@ -215,6 +234,18 @@
       document.getElementById('cat_people').checked = cats.people ?? true;
       document.getElementById('cat_musings').checked = cats.musings ?? true;
       document.getElementById('cat_jokes').checked = cats.jokes ?? true;
+      const feedCats = st.feed_categories || {};
+      document.getElementById('feed_weather').checked = feedCats.weather ?? true;
+      document.getElementById('feed_system').checked = feedCats.system ?? true;
+      document.getElementById('feed_vacuum').checked = feedCats.vacuum ?? true;
+      document.getElementById('feed_lighting').checked = feedCats.lighting ?? true;
+      document.getElementById('feed_arrivals').checked = feedCats.arrivals ?? true;
+      document.getElementById('feed_people').checked = feedCats.people ?? true;
+      document.getElementById('feed_musings').checked = feedCats.musings ?? true;
+      document.getElementById('feed_jokes').checked = feedCats.jokes ?? true;
+      document.getElementById('musing_pool').value = (st.musing_pool || []).join('\\n');
+      document.getElementById('joke_pool').value = (st.joke_pool || []).join('\\n');
+      document.getElementById('news_urls').value = (st.news_urls || []).join('\\n');
       document.getElementById('unread-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
     }
 
@@ -229,6 +260,16 @@
         musings: document.getElementById('cat_musings').checked,
         jokes: document.getElementById('cat_jokes').checked
       };
+      const feed_categories = {
+        weather: document.getElementById('feed_weather').checked,
+        system: document.getElementById('feed_system').checked,
+        vacuum: document.getElementById('feed_vacuum').checked,
+        lighting: document.getElementById('feed_lighting').checked,
+        arrivals: document.getElementById('feed_arrivals').checked,
+        people: document.getElementById('feed_people').checked,
+        musings: document.getElementById('feed_musings').checked,
+        jokes: document.getElementById('feed_jokes').checked
+      };
       return {
         persona_prompt: document.getElementById('persona').value.trim(),
         route_default: document.getElementById('route_default').value,
@@ -238,7 +279,11 @@
         notify_service: document.getElementById('notify_service').value.trim(),
         notify_title: document.getElementById('notify_title').value.trim(),
         notify_tag: document.getElementById('notify_tag').value.trim(),
-        categories
+        categories,
+        feed_categories,
+        musing_pool: document.getElementById('musing_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
+        joke_pool: document.getElementById('joke_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
+        news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean)
       };
     }
 

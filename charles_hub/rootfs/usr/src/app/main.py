@@ -65,6 +65,19 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
             "musings": True,
             "jokes": True,
         },
+        "feed_categories": {
+            "weather": True,
+            "system": True,
+            "vacuum": True,
+            "lighting": True,
+            "arrivals": True,
+            "people": True,
+            "musings": True,
+            "jokes": True,
+        },
+        "musing_pool": options.get("musing_pool", []),
+        "joke_pool": options.get("joke_pool", []),
+        "news_urls": options.get("news_urls", []),
         "last_entry_key": "",
         "last_entry_time": 0.0,
         "unread_count": 0,
@@ -145,6 +158,11 @@ async def call_notify(service: str, title: str, message: str, tag: str) -> None:
 def category_allowed(category: str) -> bool:
     key = category.lower()
     return bool(state.get("categories", {}).get(key, True))
+
+
+def feed_category_allowed(category: str) -> bool:
+    key = category.lower()
+    return bool(state.get("feed_categories", {}).get(key, True))
 
 
 def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
@@ -235,7 +253,11 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
     )
 
     ts_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now_ts))
-    send_feed = state.get("feed_enabled", True) and resolved_route in {"feed", "both"}
+    send_feed = (
+        state.get("feed_enabled", True)
+        and resolved_route in {"feed", "both"}
+        and feed_category_allowed(category)
+    )
     send_notify = (
         state.get("notifications_enabled", True)
         and resolved_route in {"notify", "both"}
