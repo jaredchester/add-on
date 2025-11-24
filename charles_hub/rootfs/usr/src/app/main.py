@@ -81,6 +81,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "weather_min_gap": options.get("weather_min_gap", 3600),
         "weather_temp_delta": options.get("weather_temp_delta", 5),
         "weather_condition_change": options.get("weather_condition_change", True),
+        "weather_feed_only_minor": options.get("weather_feed_only_minor", False),
         "musings_interval_min": options.get("musings_interval_min", 60),
         "musings_interval_max": options.get("musings_interval_max", 180),
         "musings_daily_cap": options.get("musings_daily_cap", 4),
