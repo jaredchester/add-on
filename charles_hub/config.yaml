@@ -1,8 +1,8 @@
 # CHARLES persona minimal add-on
 name: CHARLES Hub
-version: "0.0.3"
+version: "0.1.0"
 slug: charles_hub
-description: Minimal CHARLES persona prompt holder
+description: CHARLES Hub API (persona + routing state)
 arch:
   - armhf
   - armv7
@@ -16,6 +16,7 @@ ingress: false
 ports: {}
 map:
   - share:rw
+  - config:rw
 options:
   persona_prompt: "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – a sardonic, witty butler. Reply in one short sentence."
 schema:
