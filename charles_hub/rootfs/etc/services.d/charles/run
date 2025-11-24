@@ -1,0 +1,7 @@
+#!/command/with-contenv bashio
+# Minimal stub service; keeps the add-on running.
+set -euo pipefail
+
+bashio::log.info "CHARLES Hub (minimal) starting. Persona prompt stored in add-on options."
+
+exec tail -f /dev/null
