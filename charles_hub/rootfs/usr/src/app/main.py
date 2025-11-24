@@ -78,8 +78,9 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         },
         "quiet_hours_start": options.get("quiet_hours_start", "22:00"),
         "quiet_hours_end": options.get("quiet_hours_end", "07:00"),
-        "quiet_exempt_categories": options.get("quiet_exempt_categories", ["weather", "system"]),
         "weather_min_gap": options.get("weather_min_gap", 3600),
+        "weather_temp_delta": options.get("weather_temp_delta", 5),
+        "weather_condition_change": options.get("weather_condition_change", True),
         "musings_interval_min": options.get("musings_interval_min", 60),
         "musings_interval_max": options.get("musings_interval_max", 180),
         "musings_daily_cap": options.get("musings_daily_cap", 4),
@@ -283,13 +284,11 @@ async def process_emit(
         and feed_category_allowed(category)
     )
     quiet = in_quiet_hours(time.time())
-    quiet_exempt = [c.lower() for c in state.get("quiet_exempt_categories", [])]
-    quiet_allows_notify = quiet and (category.lower() in quiet_exempt)
     send_notify = (
         state.get("notifications_enabled", True)
         and resolved_route in {"notify", "both"}
         and category_allowed(category)
-        and (not quiet or quiet_allows_notify)
+        and (not quiet)
     )
 
     feed_line = None
