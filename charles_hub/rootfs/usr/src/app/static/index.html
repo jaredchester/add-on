@@ -199,7 +199,9 @@
       <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
         <button class="secondary" onclick="loadFeed()">Refresh feed</button>
         <button class="secondary" onclick="markRead()">Mark read</button>
+        <button class="secondary" onclick="toggleAutoFeed()" id="auto-btn">Auto-refresh</button>
       </div>
+      <div class="note" id="unread-log"></div>
     </div>
   </div>
   <div class="status" id="status">Loading…</div>
@@ -247,6 +249,8 @@
       document.getElementById('joke_pool').value = (st.joke_pool || []).join('\\n');
       document.getElementById('news_urls').value = (st.news_urls || []).join('\\n');
       document.getElementById('unread-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
+      const unread = st.unread_log || [];
+      document.getElementById('unread-log').textContent = unread.length ? `Unread log: ${unread.join(' | ')}` : '';
     }
 
     function collectState() {
@@ -390,6 +394,21 @@
       } catch (err) {
         console.error(err);
         setStatus('Failed to mark read.', false);
+      }
+    }
+
+    let autoFeed = false;
+    let feedInterval = null;
+    function toggleAutoFeed() {
+      autoFeed = !autoFeed;
+      const btn = document.getElementById('auto-btn');
+      if (autoFeed) {
+        loadFeed();
+        feedInterval = setInterval(loadFeed, 15000);
+        btn.textContent = 'Auto-refresh (on)';
+      } else {
+        if (feedInterval) clearInterval(feedInterval);
+        btn.textContent = 'Auto-refresh';
       }
     }
 
