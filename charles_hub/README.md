@@ -6,7 +6,7 @@ API add-on to hold CHARLES persona and routing state. Includes `/api/state`, `/a
 - `persona_prompt` (string): CHARLES persona text.
 
 ## Endpoints
-- `GET /api/health` — status.
+- `GET /api/health` — status and last emit/error.
 - `GET/POST /api/state` — read/update stored state.
 - `GET /api/feed` — read `/config/www/charles_feed.log`.
 - `POST /api/emit` — generates reply via HA conversation agent, appends to feed, optionally notifies (respects feed/notify category toggles and throttle).

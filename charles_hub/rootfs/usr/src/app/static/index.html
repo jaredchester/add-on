@@ -264,6 +264,12 @@
       </div>
       <div class="note" id="unread-log"></div>
     </div>
+    <div class="card">
+      <h2>Health</h2>
+      <div class="note" id="health-status">Loading…</div>
+      <div class="note" id="health-last"></div>
+      <button class="secondary" onclick="loadHealth()">Refresh health</button>
+    </div>
   </div>
   <div class="status" id="status">Loading…</div>
 
@@ -447,6 +453,28 @@
       }
     }
 
+    async function loadHealth() {
+      try {
+        const res = await api('api/health');
+        if (!res.ok) throw new Error(`Health fetch failed: ${res.status}`);
+        const data = await res.json();
+        document.getElementById('health-status').textContent = `Status: ${data.status}`;
+        const last = data.last_emit || {};
+        if (last.time) {
+          const t = new Date(last.time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          document.getElementById('health-last').textContent = `Last emit: ${last.category || ''}/${last.topic || ''} via ${last.route || ''} at ${t}`;
+        } else {
+          document.getElementById('health-last').textContent = 'Last emit: none';
+        }
+        if (data.last_error) {
+          setStatus(`Last error: ${data.last_error}`, false);
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to load health.', false);
+      }
+    }
+
     async function emit() {
       const payload = {
         topic: document.getElementById('emit_topic').value.trim() || 'general',
@@ -503,7 +531,7 @@
       }
     }
 
-    loadState().then(loadFeed);
+    loadState().then(() => { loadFeed(); loadHealth(); });
   </script>
 </body>
 </html>

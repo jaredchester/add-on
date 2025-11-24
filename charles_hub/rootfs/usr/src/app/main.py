@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import time
 import random
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -82,6 +82,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "weather_temp_delta": options.get("weather_temp_delta", 5),
         "weather_condition_change": options.get("weather_condition_change", True),
         "weather_feed_only_minor": options.get("weather_feed_only_minor", False),
+        "last_weather_payload": {},
         "musings_interval_min": options.get("musings_interval_min", 60),
         "musings_interval_max": options.get("musings_interval_max", 180),
         "musings_daily_cap": options.get("musings_daily_cap", 4),
@@ -102,6 +103,8 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "last_entry_time": 0.0,
         "unread_count": 0,
         "unread_log": [],
+        "last_emit": {},
+        "last_error": "",
     }
 
 
@@ -197,6 +200,26 @@ def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
     return line
 
 
+def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_delta_req: float, condition_change_required: bool) -> Tuple[bool, str]:
+    prev_cond = str(previous.get("condition", "")).lower()
+    new_cond = str(current.get("condition", "")).lower()
+    prev_temp = previous.get("temperature")
+    new_temp = current.get("temperature")
+    condition_changed = (prev_cond != new_cond) if (prev_cond or new_cond) else False
+    temp_delta = 0.0
+    if isinstance(prev_temp, (int, float)) and isinstance(new_temp, (int, float)):
+        temp_delta = abs(new_temp - prev_temp)
+    significant = True
+    reason = "significant"
+    if condition_change_required and not condition_changed and temp_delta < temp_delta_req:
+        significant = False
+        reason = "minor"
+    elif not condition_change_required and temp_delta < temp_delta_req and not condition_changed:
+        significant = False
+        reason = "minor"
+    return significant, reason
+
+
 @app.on_event("startup")
 async def startup() -> None:
     await load_state()
@@ -214,7 +237,8 @@ async def root_page() -> HTMLResponse:
 
 @app.get("/api/health")
 async def health() -> Dict[str, Any]:
-    return {"status": "ok"}
+    async with state_lock:
+        return {"status": "ok", "last_emit": state.get("last_emit", {}), "last_error": state.get("last_error", "")}
 
 
 @app.get("/api/state")
@@ -250,6 +274,7 @@ async def process_emit(
     notify_tag_override: Optional[str] = None,
     notify_title_override: Optional[str] = None,
     prompt_override: Optional[str] = None,
+    weather_payload: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
@@ -258,11 +283,26 @@ async def process_emit(
         last_ts = float(state.get("last_entry_time", 0.0))
         resolved_route = default_route if route_raw == "default" else route_raw
         now_ts = time.time()
+        minor_weather = False
         if category.lower() == "weather":
             min_gap = int(state.get("weather_min_gap", 0))
             last_weather = float(state.get("last_weather_time", 0.0))
             if min_gap > 0 and (now_ts - last_weather) < min_gap:
                 return {"status": "throttled", "route": resolved_route}
+            prev_payload = state.get("last_weather_payload", {}) or {}
+            current_payload = weather_payload or {}
+            significant, reason = weather_significant(
+                prev_payload,
+                current_payload,
+                float(state.get("weather_temp_delta", 5)),
+                bool(state.get("weather_condition_change", True)),
+            )
+            if not significant:
+                if state.get("weather_feed_only_minor", False):
+                    minor_weather = True
+                    resolved_route = "feed"
+                else:
+                    return {"status": "throttled", "route": resolved_route}
         current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
         if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
             return {"status": "throttled", "route": resolved_route}
@@ -291,6 +331,8 @@ async def process_emit(
         and category_allowed(category)
         and (not quiet)
     )
+    if category.lower() == "weather" and minor_weather:
+        send_notify = False
 
     feed_line = None
     if send_feed:
@@ -312,11 +354,21 @@ async def process_emit(
         state["last_entry_time"] = now_ts
         if category.lower() == "weather":
             state["last_weather_time"] = now_ts
+            state["last_weather_payload"] = weather_payload or {}
         if send_notify:
             unread_entry = message_text[:140]
             existing = state.get("unread_log", [])
             state["unread_log"] = ([unread_entry] + existing)[:5]
             state["unread_count"] = int(state.get("unread_count", 0)) + 1
+        state["last_emit"] = {
+            "time": now_ts,
+            "topic": topic,
+            "category": category,
+            "route": resolved_route,
+            "status": "ok",
+            "notified": bool(send_notify),
+        }
+        state["last_error"] = ""
         await persist_state()
 
     return {
@@ -343,6 +395,10 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
         notify_tag_override=payload.get("notify_tag"),
         notify_title_override=payload.get("notify_title"),
         prompt_override=payload.get("prompt_override"),
+        weather_payload={
+            "temperature": payload.get("weather_temperature"),
+            "condition": payload.get("weather_condition"),
+        },
     )
     if result.get("status") == "throttled":
         return JSONResponse(result, status_code=202)
