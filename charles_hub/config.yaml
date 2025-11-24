@@ -1,6 +1,6 @@
 # CHARLES persona minimal add-on
 name: CHARLES Hub
-version: "0.4.0"
+version: "0.4.1"
 slug: charles_hub
 description: CHARLES Hub API (persona + routing state)
 arch:
@@ -14,7 +14,8 @@ init: false
 boot: auto
 ingress: true
 ingress_port: 8099
-ports: {}
+ports:
+  "8099/tcp": 8099
 map:
   - share:rw
   - config:rw

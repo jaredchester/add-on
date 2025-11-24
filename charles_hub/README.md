@@ -14,4 +14,4 @@ API add-on to hold CHARLES persona and routing state. Includes `/api/state`, `/a
 
 ## Build/Install
 - Add this repository to Home Assistant Add-on Store.
-- Install/rebuild the add-on. The service listens on port 8099 inside the add-on; mapped to host 8099 by default.
+- Install/rebuild the add-on. The service listens on port 8099 (host port also mapped to 8099) and via ingress.
