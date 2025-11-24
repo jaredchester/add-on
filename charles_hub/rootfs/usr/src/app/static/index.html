@@ -146,6 +146,7 @@
       <label for="persona">Prompt</label>
       <textarea id="persona"></textarea>
       <button onclick="saveState()">Save persona</button>
+      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Prompt Pools</h3>
       <label for="musing_pool" style="margin-top:10px;">Musings (one per line)</label>
       <textarea id="musing_pool"></textarea>
       <label for="joke_pool">Jokes (one per line)</label>
@@ -208,16 +209,6 @@
         <option value="none">none</option>
       </select>
       <button onclick="emit()">Send emit</button>
-    </div>
-    <div class="card">
-      <h2>Prompt Pools</h2>
-      <label for="musing_pool">Musings (one per line)</label>
-      <textarea id="musing_pool"></textarea>
-      <label for="joke_pool">Jokes (one per line)</label>
-      <textarea id="joke_pool"></textarea>
-      <label for="news_urls">News URLs (one per line)</label>
-      <textarea id="news_urls"></textarea>
-      <button onclick="saveState()">Save pools</button>
     </div>
     <div class="card">
       <h2>Feed</h2>
