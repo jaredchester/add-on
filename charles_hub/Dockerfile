@@ -4,3 +4,5 @@ FROM $BUILD_FROM
 
 # Copy root filesystem
 COPY rootfs /
+
+RUN chmod a+x /etc/services.d/charles_hub/run /etc/services.d/charles_hub/finish

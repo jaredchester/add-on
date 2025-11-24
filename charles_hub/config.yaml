@@ -1,6 +1,6 @@
 # CHARLES persona minimal add-on
 name: CHARLES Hub
-version: "0.0.2"
+version: "0.0.3"
 slug: charles_hub
 description: Minimal CHARLES persona prompt holder
 arch:
