@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import time
+import random
 from typing import Any, Dict, Optional
 
 import httpx
@@ -75,9 +76,23 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
             "musings": True,
             "jokes": True,
         },
+        "quiet_hours_start": options.get("quiet_hours_start", "22:00"),
+        "quiet_hours_end": options.get("quiet_hours_end", "07:00"),
+        "musings_interval_min": options.get("musings_interval_min", 60),
+        "musings_interval_max": options.get("musings_interval_max", 180),
+        "musings_daily_cap": options.get("musings_daily_cap", 4),
+        "jokes_interval_min": options.get("jokes_interval_min", 120),
+        "jokes_interval_max": options.get("jokes_interval_max", 240),
+        "jokes_daily_cap": options.get("jokes_daily_cap", 3),
         "musing_pool": options.get("musing_pool", []),
         "joke_pool": options.get("joke_pool", []),
         "news_urls": options.get("news_urls", []),
+        "last_musing_time": 0.0,
+        "last_joke_time": 0.0,
+        "musing_count_date": "",
+        "joke_count_date": "",
+        "musing_count_today": 0,
+        "joke_count_today": 0,
         "last_entry_key": "",
         "last_entry_time": 0.0,
         "unread_count": 0,
@@ -180,6 +195,8 @@ def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
 @app.on_event("startup")
 async def startup() -> None:
     await load_state()
+    asyncio.create_task(scheduled_loop("musings"))
+    asyncio.create_task(scheduled_loop("jokes"))
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -218,18 +235,17 @@ async def get_feed() -> Dict[str, Any]:
     return {"entries": entries}
 
 
-@app.post("/api/emit")
-async def emit(payload: Dict[str, Any]) -> JSONResponse:
-    topic = payload.get("topic", "general")
-    category = payload.get("category", "system")
-    context = payload.get("context", "All systems nominal.")
-    route_raw = payload.get("route", "default")
-    notify_service_override: Optional[str] = payload.get("notify_service")
-    notify_tag_override: Optional[str] = payload.get("notify_tag")
-    notify_title_override: Optional[str] = payload.get("notify_title")
-    prompt_override: Optional[str] = payload.get("prompt_override")
-    conversation_id: str = payload.get("conversation_id", "charles_general")
-
+async def process_emit(
+    topic: str,
+    category: str,
+    context: str,
+    route_raw: str,
+    conversation_id: str,
+    notify_service_override: Optional[str] = None,
+    notify_tag_override: Optional[str] = None,
+    notify_title_override: Optional[str] = None,
+    prompt_override: Optional[str] = None,
+) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
         throttle_seconds = int(state.get("throttle_seconds", 0))
@@ -239,7 +255,7 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
         now_ts = time.time()
         current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
         if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
-            return JSONResponse({"status": "throttled", "route": resolved_route}, status_code=202)
+            return {"status": "throttled", "route": resolved_route}
 
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
@@ -289,18 +305,34 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
             state["unread_count"] = int(state.get("unread_count", 0)) + 1
         await persist_state()
 
-    return JSONResponse(
-        {
-            "status": "ok",
-            "route": resolved_route,
-            "topic": topic,
-            "category": category,
-            "context": context,
-            "message": message_text,
-            "feed_line": feed_line,
-            "notified": bool(send_notify),
-        }
+    return {
+        "status": "ok",
+        "route": resolved_route,
+        "topic": topic,
+        "category": category,
+        "context": context,
+        "message": message_text,
+        "feed_line": feed_line,
+        "notified": bool(send_notify),
+    }
+
+
+@app.post("/api/emit")
+async def emit(payload: Dict[str, Any]) -> JSONResponse:
+    result = await process_emit(
+        topic=payload.get("topic", "general"),
+        category=payload.get("category", "system"),
+        context=payload.get("context", "All systems nominal."),
+        route_raw=payload.get("route", "default"),
+        conversation_id=payload.get("conversation_id", "charles_general"),
+        notify_service_override=payload.get("notify_service"),
+        notify_tag_override=payload.get("notify_tag"),
+        notify_title_override=payload.get("notify_title"),
+        prompt_override=payload.get("prompt_override"),
     )
+    if result.get("status") == "throttled":
+        return JSONResponse(result, status_code=202)
+    return JSONResponse(result)
 
 
 @app.post("/api/mark_read")
@@ -310,3 +342,68 @@ async def mark_read() -> Dict[str, Any]:
         state["unread_log"] = []
         await persist_state()
     return {"status": "ok"}
+
+
+def in_quiet_hours(now_ts: float) -> bool:
+    start = state.get("quiet_hours_start", "22:00")
+    end = state.get("quiet_hours_end", "07:00")
+    try:
+        sh, sm = [int(x) for x in start.split(":")]
+        eh, em = [int(x) for x in end.split(":")]
+    except Exception:
+        return False
+    now = time.localtime(now_ts)
+    minutes_now = now.tm_hour * 60 + now.tm_min
+    start_minutes = sh * 60 + sm
+    end_minutes = eh * 60 + em
+    if start_minutes <= end_minutes:
+        return start_minutes <= minutes_now < end_minutes
+    return minutes_now >= start_minutes or minutes_now < end_minutes
+
+
+async def scheduled_loop(kind: str) -> None:
+    while True:
+        try:
+            async with state_lock:
+                interval_min = int(state.get(f"{kind}_interval_min", 0))
+                interval_max = int(state.get(f"{kind}_interval_max", max(interval_min, 60)))
+            delay_minutes = random.randint(interval_min, max(interval_min, interval_max)) if interval_min > 0 else 60
+            await asyncio.sleep(delay_minutes * 60)
+
+            async with state_lock:
+                enabled_feed = state.get("feed_enabled", True)
+                enabled_notify = state.get("notifications_enabled", True)
+                category_allowed_flag = category_allowed(kind)
+                feed_allowed_flag = feed_category_allowed(kind)
+                if (not enabled_feed and not enabled_notify) or (not category_allowed_flag and not feed_allowed_flag):
+                    continue
+                if in_quiet_hours(time.time()):
+                    continue
+
+                today = time.strftime("%Y-%m-%d", time.localtime())
+                cap = int(state.get(f"{kind}_daily_cap", 0))
+                count_date_key = f"{kind}_count_date"
+                count_key = f"{kind}_count_today"
+                if state.get(count_date_key) != today:
+                    state[count_date_key] = today
+                    state[count_key] = 0
+                if cap > 0 and state.get(count_key, 0) >= cap:
+                    continue
+
+                pool = state.get(f"{kind}_pool", [])
+                prompt = random.choice(pool) if pool else f"Share a {kind[:-1]} update."
+            result = await process_emit(
+                topic=kind,
+                category=kind,
+                context=prompt,
+                route_raw="default",
+                conversation_id=f"charles_{kind}",
+            )
+            if result.get("status") != "throttled":
+                async with state_lock:
+                    state[count_key] = state.get(count_key, 0) + 1
+                    state[f"last_{kind}_time"] = time.time()
+                    await persist_state()
+        except Exception as err:
+            print(f"[charles] scheduler error ({kind}): {err}")
+            await asyncio.sleep(60)

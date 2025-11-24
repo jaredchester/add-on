@@ -193,6 +193,28 @@
       <button onclick="saveState()">Save routing</button>
     </div>
     <div class="card">
+      <h2>Scheduling</h2>
+      <label for="quiet_start">Quiet hours start</label>
+      <input type="time" id="quiet_start" value="22:00">
+      <label for="quiet_end">Quiet hours end</label>
+      <input type="time" id="quiet_end" value="07:00">
+      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Musings</h3>
+      <label for="musing_min">Interval min (minutes)</label>
+      <input type="number" id="musing_min" min="1" step="5">
+      <label for="musing_max">Interval max (minutes)</label>
+      <input type="number" id="musing_max" min="1" step="5">
+      <label for="musing_cap">Daily cap</label>
+      <input type="number" id="musing_cap" min="0" step="1">
+      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Jokes</h3>
+      <label for="joke_min">Interval min (minutes)</label>
+      <input type="number" id="joke_min" min="1" step="5">
+      <label for="joke_max">Interval max (minutes)</label>
+      <input type="number" id="joke_max" min="1" step="5">
+      <label for="joke_cap">Daily cap</label>
+      <input type="number" id="joke_cap" min="0" step="1">
+      <button onclick="saveState()">Save scheduling</button>
+    </div>
+    <div class="card">
       <h2>Emit Test</h2>
       <label for="emit_topic">Topic</label>
       <input type="text" id="emit_topic" value="general">
@@ -246,6 +268,8 @@
       document.getElementById('notify_service').value = st.notify_service || '';
       document.getElementById('notify_title').value = st.notify_title || '';
       document.getElementById('notify_tag').value = st.notify_tag || '';
+      document.getElementById('quiet_start').value = st.quiet_hours_start || '22:00';
+      document.getElementById('quiet_end').value = st.quiet_hours_end || '07:00';
       const cats = st.categories || {};
       document.getElementById('cat_weather').checked = cats.weather ?? true;
       document.getElementById('cat_system').checked = cats.system ?? true;
@@ -264,6 +288,12 @@
       document.getElementById('feed_people').checked = feedCats.people ?? true;
       document.getElementById('feed_musings').checked = feedCats.musings ?? true;
       document.getElementById('feed_jokes').checked = feedCats.jokes ?? true;
+      document.getElementById('musing_min').value = st.musings_interval_min ?? 60;
+      document.getElementById('musing_max').value = st.musings_interval_max ?? 180;
+      document.getElementById('musing_cap').value = st.musings_daily_cap ?? 4;
+      document.getElementById('joke_min').value = st.jokes_interval_min ?? 120;
+      document.getElementById('joke_max').value = st.jokes_interval_max ?? 240;
+      document.getElementById('joke_cap').value = st.jokes_daily_cap ?? 3;
       document.getElementById('musing_pool').value = (st.musing_pool || []).join('\\n');
       document.getElementById('joke_pool').value = (st.joke_pool || []).join('\\n');
       document.getElementById('news_urls').value = (st.news_urls || []).join('\\n');
@@ -302,11 +332,19 @@
         notify_service: document.getElementById('notify_service').value.trim(),
         notify_title: document.getElementById('notify_title').value.trim(),
         notify_tag: document.getElementById('notify_tag').value.trim(),
+        quiet_hours_start: document.getElementById('quiet_start').value || '22:00',
+        quiet_hours_end: document.getElementById('quiet_end').value || '07:00',
         categories,
         feed_categories,
         musing_pool: document.getElementById('musing_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
         joke_pool: document.getElementById('joke_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
-        news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean)
+        news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
+        musings_interval_min: Number(document.getElementById('musing_min').value) || 0,
+        musings_interval_max: Number(document.getElementById('musing_max').value) || 0,
+        musings_daily_cap: Number(document.getElementById('musing_cap').value) || 0,
+        jokes_interval_min: Number(document.getElementById('joke_min').value) || 0,
+        jokes_interval_max: Number(document.getElementById('joke_max').value) || 0,
+        jokes_daily_cap: Number(document.getElementById('joke_cap').value) || 0
       };
     }
 
