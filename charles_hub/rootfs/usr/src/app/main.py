@@ -251,8 +251,10 @@ def parse_iso_ts(raw: Any) -> Optional[float]:
 
 async def build_quick_context(category: str) -> Tuple[str, str]:
     cat = category.lower()
+    async with state_lock:
+        st = dict(state)
     if cat == "weather":
-        payload = state.get("last_weather_payload") or await poll_weather_entity()
+        payload = st.get("last_weather_payload") or await poll_weather_entity()
         if payload:
             cond = payload.get("condition", "?")
             temp = payload.get("temperature", "?")
@@ -261,26 +263,28 @@ async def build_quick_context(category: str) -> Tuple[str, str]:
     if cat == "calendar":
         return ("Share today's and tomorrow's upcoming calendar items briefly.", "calendar")
     if cat == "musings":
-        pool: List[str] = state.get("musing_pool") or []
+        pool: List[str] = st.get("musing_pool") or []
         if pool:
-            return (random.choice(pool), "musings")
-        return ("Share a quick house musing.", "musings")
+            seed = random.choice(pool)
+            return (f"Seed: {seed}\nRespond with one short, wry musing inspired by this seed. Keep it to one or two sentences.", "musings")
+        return ("Share one short, wry house musing in one or two sentences.", "musings")
     if cat == "jokes":
-        pool: List[str] = state.get("joke_pool") or []
+        pool: List[str] = st.get("joke_pool") or []
         if pool:
-            return (random.choice(pool), "jokes")
-        return ("Share a short joke.", "jokes")
+            seed = random.choice(pool)
+            return (f"Seed: {seed}\nTell exactly one short joke based on this seed. Do not list multiple jokes.", "jokes")
+        return ("Tell exactly one short joke. Do not list multiple jokes.", "jokes")
     if cat == "lighting":
-        return ("Summarize current lighting status and any recent changes.", "lighting")
+        return ("Summarize current lighting status and any recent changes in one sentence.", "lighting")
     if cat == "arrivals":
-        return ("Share the latest arrival/departure update.", "arrivals")
+        return ("Share the latest arrival/departure update in one sentence.", "arrivals")
     if cat == "people":
-        return ("Share a brief status update about the household.", "people")
+        return ("Share a brief status update about the household in one sentence.", "people")
     if cat == "vacuum":
-        return ("Share the current vacuum status.", "vacuum")
+        return ("Share the current vacuum status in one sentence.", "vacuum")
     if cat == "system":
-        return ("System check-in and recent notable events.", "system")
-    return (f"Share a quick {cat} update.", cat)
+        return ("System check-in and recent notable events in one sentence.", "system")
+    return (f"Share a quick {cat} update in one sentence.", cat)
 
 
 def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_delta_req: float, condition_change_required: bool) -> Tuple[bool, str]:
@@ -711,11 +715,18 @@ async def scheduled_loop(kind: str) -> None:
                     continue
 
                 pool = state.get(f"{kind}_pool", [])
-                prompt = random.choice(pool) if pool else f"Share a {kind[:-1]} update."
+                if pool:
+                    seed = random.choice(pool)
+                    context = (
+                        f"Seed: {seed}\n"
+                        f"{'Tell exactly one short joke based on this seed.' if kind=='jokes' else 'Respond with one short, wry musing inspired by this seed. Keep it to one or two sentences.'}"
+                    )
+                else:
+                    context = f"Share one short {kind[:-1]} update in one sentence."
             result = await process_emit(
                 topic=kind,
                 category=kind,
-                context=prompt,
+                context=context,
                 route_raw="default",
                 conversation_id=f"charles_{kind}",
             )
