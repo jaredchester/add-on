@@ -41,8 +41,9 @@
       min-height: 60vh;
     }
     .item {
+      box-sizing: border-box;
       position: absolute;
-      width: min(420px, calc(50% - var(--gap)));
+      width: calc(33.333% - var(--gap));
       padding: calc(var(--gap) / 2);
       margin: 0;
     }
@@ -50,7 +51,7 @@
       position: relative;
       width: 100%;
     }
-    @media (max-width: 1200px) { .item { width: calc(50% - var(--gap)); } }
+    @media (max-width: 1300px) { .item { width: calc(50% - var(--gap)); } }
     @media (max-width: 900px) { .item { width: calc(100% - var(--gap)); } }
     @media (max-width: 600px) { .item { width: calc(100% - var(--gap)); position: relative; } }
     .item.muuri-item-dragging { z-index: 20; }
@@ -686,10 +687,11 @@
     function initMuuri() {
       gridMuuri = new Muuri('#card-grid', {
         items: '.item',
-        layout: { fillGaps: true, rounding: false },
+        layout: { fillGaps: false, rounding: false },
         dragEnabled: true,
         dragHandle: '.card-header',
         layoutOnResize: true,
+        layoutOnItemsResize: true,
         layoutOnInit: false,
         dragPlaceholder: {
           enabled: true,
