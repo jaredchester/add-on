@@ -213,6 +213,21 @@
       <input type="text" id="notify_title" placeholder="CHARLES says">
       <label for="notify_tag">Notify tag</label>
       <input type="text" id="notify_tag" placeholder="charles_stream">
+      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Quiet Hours</h3>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+        <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
+        <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
+      </div>
+      <button onclick="saveState()">Save routing</button>
+        </div>
+      </div>
+    </div>
+    <div class="item" data-id="domains">
+      <div class="card" data-card="domains">
+        <div class="card-header">
+          <h2>Domains</h2>
+        </div>
+        <div class="card-body" id="body-domains">
       <label>Categories</label>
       <table>
         <thead>
@@ -282,12 +297,7 @@
           </tr>
         </tbody>
       </table>
-      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Quiet Hours</h3>
-      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
-        <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
-        <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
-      </div>
-      <button onclick="saveState()">Save routing</button>
+      <button onclick="saveState()">Save domains</button>
         </div>
       </div>
     </div>
