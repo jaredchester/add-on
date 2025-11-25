@@ -680,44 +680,14 @@
 
     function saveOrder() {
       if (!gridMuuri) return;
-      const order = gridMuuri.getItems().map(item => {
-        const el = item.getElement();
-        return { id: el.dataset.id, col: el.dataset.col || "0" };
-      });
+      const order = gridMuuri.getItems().map(item => item.getElement().dataset.id);
       localStorage.setItem(orderKey, JSON.stringify(order));
-    }
-
-    function sortByColumn() {
-      if (!gridMuuri) return;
-      gridMuuri.sort((a, b) => {
-        const ea = a.getElement();
-        const eb = b.getElement();
-        const ca = parseInt(ea.dataset.col || "0", 10);
-        const cb = parseInt(eb.dataset.col || "0", 10);
-        if (ca !== cb) return ca - cb;
-        const ra = parseFloat(ea.dataset.row || "0");
-        const rb = parseFloat(eb.dataset.row || "0");
-        return ra - rb;
-      }, { layout: 'instant' });
-    }
-
-    function setColumnForItem(item) {
-      const gridEl = document.getElementById('card-grid');
-      if (!gridEl || !item) return;
-      const el = item.getElement();
-      const rectGrid = gridEl.getBoundingClientRect();
-      const rect = el.getBoundingClientRect();
-      const relX = rect.left - rectGrid.left;
-      const colWidth = rectGrid.width / 3;
-      const col = Math.max(0, Math.min(2, Math.floor((relX + colWidth / 2) / colWidth)));
-      el.dataset.col = String(col);
-      el.dataset.row = String(item.getPosition().top || 0);
     }
 
     function initMuuri() {
       gridMuuri = new Muuri('#card-grid', {
         items: '.item',
-        layout: { fillGaps: false, rounding: false },
+        layout: { fillGaps: true, rounding: false },
         dragEnabled: true,
         dragHandle: '.card-header',
         layoutOnResize: true,
@@ -734,16 +704,10 @@
             return el;
           },
         },
-        dragSortPredicate: { threshold: 50, action: 'move' },
-        dragSort: () => gridMuuri ? [gridMuuri] : [],
-      });
-      gridMuuri.getItems().forEach((it, idx) => {
-        const el = it.getElement();
-        if (!el.dataset.col) el.dataset.col = String(idx % 3);
-        el.dataset.row = String(it.getPosition().top || 0);
+        dragSortPredicate: { threshold: 50, action: 'swap' },
+        dragSort: () => [gridMuuri],
       });
       gridMuuri.refreshItems();
-      sortByColumn();
       const raw = localStorage.getItem(orderKey);
       if (raw) {
         try {
@@ -751,19 +715,7 @@
           if (Array.isArray(order)) {
             const current = gridMuuri.getItems();
             const map = Object.fromEntries(current.map(i => [i.getElement().dataset.id, i]));
-            const newOrder = [];
-            order.forEach(entry => {
-              if (typeof entry === 'string') {
-                const it = map[entry];
-                if (it) newOrder.push(it);
-              } else if (entry && entry.id) {
-                const it = map[entry.id];
-                if (it) {
-                  it.getElement().dataset.col = entry.col ?? it.getElement().dataset.col ?? "0";
-                  newOrder.push(it);
-                }
-              }
-            });
+            const newOrder = order.map(id => map[id]).filter(Boolean);
             if (newOrder.length) gridMuuri.sort(newOrder, { layout: 'instant' });
           }
         } catch (e) {
@@ -771,12 +723,7 @@
         }
       }
       gridMuuri.refreshItems();
-      sortByColumn();
-      gridMuuri.on('moveEnd', () => { saveOrder(); sortByColumn(); });
-      gridMuuri.on('dragReleaseEnd', (item) => {
-        setColumnForItem(item.getGrid().getItems().find(i => i._id === item._id) || item);
-        requestAnimationFrame(() => { sortByColumn(); reflowGrid(); saveOrder(); });
-      });
+      gridMuuri.on('moveEnd', () => { saveOrder(); });
     }
 
     let autoFeed = false;
@@ -795,7 +742,7 @@
     }
 
     initMuuri();
-    window.addEventListener('resize', () => requestAnimationFrame(() => { reflowGrid(); sortByColumn(); }));
+    window.addEventListener('resize', () => requestAnimationFrame(() => { reflowGrid(); }));
     loadState().then(() => { loadFeed(); loadHealth(); });
   </script>
 </body>
