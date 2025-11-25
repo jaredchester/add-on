@@ -7,7 +7,7 @@ from pathlib import Path
 import time
 import random
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -247,6 +247,40 @@ def parse_iso_ts(raw: Any) -> Optional[float]:
         return dt.timestamp()
     except Exception:
         return None
+
+
+async def build_quick_context(category: str) -> Tuple[str, str]:
+    cat = category.lower()
+    if cat == "weather":
+        payload = state.get("last_weather_payload") or await poll_weather_entity()
+        if payload:
+            cond = payload.get("condition", "?")
+            temp = payload.get("temperature", "?")
+            return (f"Weather update: {cond} at {temp}°.", "weather")
+        return ("Share the current weather briefly.", "weather")
+    if cat == "calendar":
+        return ("Share today's and tomorrow's upcoming calendar items briefly.", "calendar")
+    if cat == "musings":
+        pool: List[str] = state.get("musing_pool") or []
+        if pool:
+            return (random.choice(pool), "musings")
+        return ("Share a quick house musing.", "musings")
+    if cat == "jokes":
+        pool: List[str] = state.get("joke_pool") or []
+        if pool:
+            return (random.choice(pool), "jokes")
+        return ("Share a short joke.", "jokes")
+    if cat == "lighting":
+        return ("Summarize current lighting status and any recent changes.", "lighting")
+    if cat == "arrivals":
+        return ("Share the latest arrival/departure update.", "arrivals")
+    if cat == "people":
+        return ("Share a brief status update about the household.", "people")
+    if cat == "vacuum":
+        return ("Share the current vacuum status.", "vacuum")
+    if cat == "system":
+        return ("System check-in and recent notable events.", "system")
+    return (f"Share a quick {cat} update.", cat)
 
 
 def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_delta_req: float, condition_change_required: bool) -> Tuple[bool, str]:
@@ -592,6 +626,22 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
             "temperature": payload.get("weather_temperature"),
             "condition": payload.get("weather_condition"),
         },
+    )
+    if result.get("status") == "throttled":
+        return JSONResponse(result, status_code=202)
+    return JSONResponse(result)
+
+
+@app.post("/api/trigger")
+async def trigger(payload: Dict[str, Any]) -> JSONResponse:
+    category = payload.get("category", "system")
+    context, topic = await build_quick_context(category)
+    result = await process_emit(
+        topic=topic,
+        category=category,
+        context=context,
+        route_raw="default",
+        conversation_id=f"charles_trigger_{category}",
     )
     if result.get("status") == "throttled":
         return JSONResponse(result, status_code=202)

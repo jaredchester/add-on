@@ -261,12 +261,12 @@
       <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell"></th></tr>
+          <tr><th>Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell"></th><th class="checkbox-cell">Run</th></tr>
         </thead>
         <tbody>
-          <tr><td>Weather</td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" id="btn-weather" onclick="toggleDetails('weather')">▼</button></td></tr>
+          <tr><td>Weather</td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" id="btn-weather" onclick="toggleDetails('weather')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('weather')">▶</button></td></tr>
           <tr id="row-weather" style="display:none;">
-            <td colspan="4">
+            <td colspan="5">
               <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="weather_gap">Min gap (sec)</label><input type="number" id="weather_gap" min="0" step="60"></div>
                 <div><label for="weather_delta">Temp delta (°)</label><input type="number" id="weather_delta" min="0" step="1"></div>
@@ -275,9 +275,9 @@
               </div>
             </td>
           </tr>
-          <tr><td>Calendar</td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" id="btn-calendar" onclick="toggleDetails('calendar')">▼</button></td></tr>
+          <tr><td>Calendar</td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" id="btn-calendar" onclick="toggleDetails('calendar')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('calendar')">▶</button></td></tr>
           <tr id="row-calendar" style="display:none;">
-            <td colspan="4">
+            <td colspan="5">
               <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
                 <div><label for="calendar_lead">Lead time (min)</label><input type="number" id="calendar_lead" min="0" step="5"></div>
                 <div><label for="calendar_poll">Poll every (sec)</label><input type="number" id="calendar_poll" min="60" step="30"></div>
@@ -290,17 +290,17 @@
               <textarea id="calendar_entities" placeholder="calendar.family&#10;calendar.work"></textarea>
             </td>
           </tr>
-          <tr><td>System</td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td></td></tr>
-          <tr><td>Vacuum</td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td></td></tr>
-          <tr><td>Lighting</td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td></td></tr>
-          <tr><td>Arrivals</td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td></td></tr>
-          <tr><td>People</td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td></td></tr>
+          <tr><td>System</td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td></tr>
+          <tr><td>Vacuum</td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td></tr>
+          <tr><td>Lighting</td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td></tr>
+          <tr><td>Arrivals</td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('arrivals')">▶</button></td></tr>
+          <tr><td>People</td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td></tr>
           <tr>
             <td>Musings</td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td>
-            <td class="checkbox-cell"><button class="secondary" id="btn-musings" onclick="toggleDetails('musings')">▼</button></td>
+            <td class="checkbox-cell"><button class="secondary" id="btn-musings" onclick="toggleDetails('musings')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('musings')">▶</button></td>
           </tr>
           <tr id="row-musings" style="display:none;">
-            <td colspan="4">
+            <td colspan="5">
               <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="musing_min">Min (min)</label><input type="number" id="musing_min" min="1" step="5"></div>
                 <div><label for="musing_max">Max (min)</label><input type="number" id="musing_max" min="1" step="5"></div>
@@ -312,10 +312,10 @@
           </tr>
           <tr>
             <td>Jokes</td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td>
-            <td class="checkbox-cell"><button class="secondary" id="btn-jokes" onclick="toggleDetails('jokes')">▼</button></td>
+            <td class="checkbox-cell"><button class="secondary" id="btn-jokes" onclick="toggleDetails('jokes')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('jokes')">▶</button></td>
           </tr>
           <tr id="row-jokes" style="display:none;">
-            <td colspan="4">
+            <td colspan="5">
               <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="joke_min">Min (min)</label><input type="number" id="joke_min" min="1" step="5"></div>
                 <div><label for="joke_max">Max (min)</label><input type="number" id="joke_max" min="1" step="5"></div>
@@ -666,6 +666,23 @@
       } catch (err) {
         console.error(err);
         setStatus('Failed to mark read.', false);
+      }
+    }
+
+    async function quickEmit(cat) {
+      try {
+        const res = await api('api/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: cat })
+        });
+        const data = await res.json();
+        if (!res.ok && res.status !== 202) throw new Error(data.detail || 'Trigger failed');
+        setStatus(data.status === 'throttled' ? `Throttled (${cat}).` : `Triggered ${cat}.`);
+        loadFeed();
+      } catch (err) {
+        console.error(err);
+        setStatus('Quick trigger failed.', false);
       }
     }
 
