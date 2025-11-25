@@ -82,6 +82,8 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "weather_temp_delta": options.get("weather_temp_delta", 5),
         "weather_condition_change": options.get("weather_condition_change", True),
         "weather_feed_only_minor": options.get("weather_feed_only_minor", False),
+        "weather_entity": options.get("weather_entity", "weather.home"),
+        "weather_poll_interval": options.get("weather_poll_interval", 300),
         "last_weather_payload": {},
         "musings_interval_min": options.get("musings_interval_min", 60),
         "musings_interval_max": options.get("musings_interval_max", 180),
@@ -225,6 +227,7 @@ async def startup() -> None:
     await load_state()
     asyncio.create_task(scheduled_loop("musings"))
     asyncio.create_task(scheduled_loop("jokes"))
+    asyncio.create_task(weather_poll_loop())
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -476,3 +479,54 @@ async def scheduled_loop(kind: str) -> None:
         except Exception as err:
             print(f"[charles] scheduler error ({kind}): {err}")
             await asyncio.sleep(60)
+async def poll_weather_entity() -> Optional[Dict[str, Any]]:
+    token = os.getenv("SUPERVISOR_TOKEN")
+    entity_id = state.get("weather_entity", "weather.home")
+    if not token or not entity_id:
+        return None
+    url = f"http://supervisor/core/api/states/{entity_id}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+            res.raise_for_status()
+            data = res.json()
+            return {
+                "condition": data.get("state"),
+                "temperature": data.get("attributes", {}).get("temperature"),
+            }
+    except Exception as err:
+        print(f"[charles] weather poll failed: {err}")
+        return None
+
+
+async def weather_poll_loop() -> None:
+    while True:
+        try:
+            interval = max(60, int(state.get("weather_poll_interval", 300)))
+            payload = await poll_weather_entity()
+            if payload and payload.get("condition") not in (None, "unknown", "unavailable"):
+                context = f"Weather update: {payload.get('condition','?')} at {payload.get('temperature','?')}°."
+                result = await process_emit(
+                    topic="weather",
+                    category="weather",
+                    context=context,
+                    route_raw="feed",
+                    conversation_id="charles_weather_poll",
+                    weather_payload=payload,
+                )
+                if result.get("status") == "ok":
+                    async with state_lock:
+                        state["last_emit"] = {
+                            "time": time.time(),
+                            "topic": "weather",
+                            "category": "weather",
+                            "route": "feed",
+                            "status": "ok",
+                            "notified": result.get("notified", False),
+                        }
+                        state["last_error"] = ""
+                        await persist_state()
+            await asyncio.sleep(interval)
+        except Exception as err:
+            print(f"[charles] weather poll loop error: {err}")
+            await asyncio.sleep(120)
