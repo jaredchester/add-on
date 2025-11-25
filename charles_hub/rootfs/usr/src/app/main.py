@@ -291,18 +291,19 @@ async def process_emit(
                 return {"status": "throttled", "route": resolved_route}
             prev_payload = state.get("last_weather_payload", {}) or {}
             current_payload = weather_payload or {}
-            significant, reason = weather_significant(
-                prev_payload,
-                current_payload,
-                float(state.get("weather_temp_delta", 5)),
-                bool(state.get("weather_condition_change", True)),
-            )
-            if not significant:
-                if state.get("weather_feed_only_minor", False):
-                    minor_weather = True
-                    resolved_route = "feed"
-                else:
-                    return {"status": "throttled", "route": resolved_route}
+            if current_payload:
+                significant, reason = weather_significant(
+                    prev_payload,
+                    current_payload,
+                    float(state.get("weather_temp_delta", 5)),
+                    bool(state.get("weather_condition_change", True)),
+                )
+                if not significant:
+                    if state.get("weather_feed_only_minor", False):
+                        minor_weather = True
+                        resolved_route = "feed"
+                    else:
+                        return {"status": "throttled", "route": resolved_route}
         current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
         if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
             return {"status": "throttled", "route": resolved_route}
@@ -446,8 +447,6 @@ async def scheduled_loop(kind: str) -> None:
                 category_allowed_flag = category_allowed(kind)
                 feed_allowed_flag = feed_category_allowed(kind)
                 if (not enabled_feed and not enabled_notify) or (not category_allowed_flag and not feed_allowed_flag):
-                    continue
-                if in_quiet_hours(time.time()):
                     continue
 
                 today = time.strftime("%Y-%m-%d", time.localtime())
