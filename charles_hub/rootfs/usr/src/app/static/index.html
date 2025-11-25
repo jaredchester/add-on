@@ -159,7 +159,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
+      margin: 0;
     }
     th, td {
       border-bottom: 1px solid var(--border);
@@ -178,6 +178,13 @@
     }
     td.checkbox-cell input {
       transform: scale(1.1);
+    }
+    .table-wrap {
+      background: #0b1311;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px 6px 4px;
+      margin-top: 6px;
     }
   </style>
 </head>
@@ -237,7 +244,8 @@
           <h2>Domains</h2>
         </div>
         <div class="card-body" id="body-domains">
-      <label>Categories</label>
+      <label style="margin-bottom:4px;">Categories</label>
+      <div class="table-wrap">
       <table>
         <thead>
           <tr><th>Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell"></th></tr>
@@ -306,7 +314,8 @@
           </tr>
         </tbody>
       </table>
-      <button onclick="saveState()">Save domains</button>
+      </div>
+      <button style="margin-top:10px;" onclick="saveState()">Save domains</button>
         </div>
       </div>
     </div>
