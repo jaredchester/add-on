@@ -501,6 +501,7 @@ async def process_emit(
     notify_title_override: Optional[str] = None,
     prompt_override: Optional[str] = None,
     weather_payload: Optional[Dict[str, Any]] = None,
+    use_raw_context: bool = False,
 ) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
@@ -537,13 +538,16 @@ async def process_emit(
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
 
-    message_text = await call_conversation(
-        prompt=agent_prompt,
-        topic=topic,
-        context=context,
-        conversation_id=conversation_id,
-        agent_id=agent_id,
-    )
+    if use_raw_context:
+        message_text = context
+    else:
+        message_text = await call_conversation(
+            prompt=agent_prompt,
+            topic=topic,
+            context=context,
+            conversation_id=conversation_id,
+            agent_id=agent_id,
+        )
 
     ts_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(now_ts))
     send_feed = (
@@ -642,6 +646,7 @@ async def trigger(payload: Dict[str, Any]) -> JSONResponse:
         context=context,
         route_raw="default",
         conversation_id=f"charles_trigger_{category}",
+        use_raw_context=False,
     )
     if result.get("status") == "throttled":
         return JSONResponse(result, status_code=202)
