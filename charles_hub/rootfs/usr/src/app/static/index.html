@@ -37,12 +37,13 @@
       position: relative;
       max-width: 1500px;
       margin: 0 auto;
-      padding: var(--gap) 0;
+      padding: var(--gap);
     }
     .item {
       position: absolute;
       width: min(420px, calc(50% - var(--gap)));
       padding: calc(var(--gap) / 2);
+      margin: 0;
     }
     @media (max-width: 1200px) { .item { width: calc(50% - var(--gap)); } }
     @media (max-width: 900px) { .item { width: calc(100% - var(--gap)); } }
@@ -373,7 +374,7 @@
     const reflowGrid = () => {
       if (!gridMuuri) return;
       gridMuuri.refreshItems();
-      gridMuuri.layout();
+      gridMuuri.layout(true);
     };
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
@@ -653,6 +654,8 @@
         layout: { fillGaps: true },
         dragEnabled: true,
         dragHandle: '.card-header',
+        layoutOnResize: true,
+        layoutOnInit: false,
       });
       gridMuuri.refreshItems();
       gridMuuri.layout(true);
@@ -669,6 +672,7 @@
         }
       }
       gridMuuri.on('moveEnd', saveOrder);
+      gridMuuri.on('dragReleaseEnd', () => requestAnimationFrame(reflowGrid));
     }
 
     let autoFeed = false;
