@@ -53,6 +53,19 @@
       color: var(--accent);
       text-transform: uppercase;
     }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .chevron {
+      font-size: 1rem;
+      color: var(--text);
+    }
+    .card-body {
+      margin-top: 8px;
+    }
     label {
       display: block;
       font-size: 0.86rem;
@@ -143,9 +156,13 @@
 </head>
 <body>
   <h1>CHARLES Hub</h1>
-  <div class="grid">
-    <div class="card">
-      <h2>Persona</h2>
+  <div class="grid" id="card-grid">
+    <div class="card" draggable="true" data-card="persona">
+      <div class="card-header" onclick="toggleCard('persona')">
+        <h2>Persona</h2>
+        <span class="chevron" id="chev-persona">▼</span>
+      </div>
+      <div class="card-body" id="body-persona">
       <label for="persona">Prompt</label>
       <textarea id="persona"></textarea>
       <button onclick="saveState()">Save persona</button>
@@ -153,9 +170,14 @@
       <label for="news_urls">News URLs (one per line)</label>
       <textarea id="news_urls"></textarea>
       <button onclick="saveState()">Save persona</button>
+      </div>
     </div>
-    <div class="card">
-      <h2>Routing & Notify</h2>
+    <div class="card" draggable="true" data-card="routing">
+      <div class="card-header" onclick="toggleCard('routing')">
+        <h2>Routing & Notify</h2>
+        <span class="chevron" id="chev-routing">▼</span>
+      </div>
+      <div class="card-body" id="body-routing">
       <label for="route_default">Default route</label>
       <select id="route_default">
         <option value="both">both</option>
@@ -233,9 +255,14 @@
         <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
       </div>
       <button onclick="saveState()">Save routing</button>
+      </div>
     </div>
-    <div class="card">
-      <h2>Emit Test</h2>
+    <div class="card" draggable="true" data-card="emit">
+      <div class="card-header" onclick="toggleCard('emit')">
+        <h2>Emit Test</h2>
+        <span class="chevron" id="chev-emit">▼</span>
+      </div>
+      <div class="card-body" id="body-emit">
       <label for="emit_topic">Topic</label>
       <input type="text" id="emit_topic" value="general">
       <label for="emit_category">Category</label>
@@ -251,9 +278,14 @@
         <option value="none">none</option>
       </select>
       <button onclick="emit()">Send emit</button>
+      </div>
     </div>
-    <div class="card">
-      <h2>Feed</h2>
+    <div class="card" draggable="true" data-card="feed">
+      <div class="card-header" onclick="toggleCard('feed')">
+        <h2>Feed</h2>
+        <span class="chevron" id="chev-feed">▼</span>
+      </div>
+      <div class="card-body" id="body-feed">
       <div class="note" id="feed-meta">Loading feed…</div>
       <div class="feed" id="feed"></div>
       <div class="note" id="unread-meta">Unread: 0</div>
@@ -263,12 +295,18 @@
         <button class="secondary" onclick="toggleAutoFeed()" id="auto-btn">Auto-refresh</button>
       </div>
       <div class="note" id="unread-log"></div>
+      </div>
     </div>
-    <div class="card">
-      <h2>Health</h2>
+    <div class="card" draggable="true" data-card="health">
+      <div class="card-header" onclick="toggleCard('health')">
+        <h2>Health</h2>
+        <span class="chevron" id="chev-health">▼</span>
+      </div>
+      <div class="card-body" id="body-health">
       <div class="note" id="health-status">Loading…</div>
       <div class="note" id="health-last"></div>
       <button class="secondary" onclick="loadHealth()">Refresh health</button>
+      </div>
     </div>
   </div>
   <div class="status" id="status">Loading…</div>
@@ -279,6 +317,7 @@
       const url = path.startsWith('/') ? '.' + path : path;
       return fetch(url, opts);
     };
+    const orderKey = 'charles_cards_order';
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
       el.textContent = txt;
@@ -516,6 +555,59 @@
       row.style.display = row.style.display === 'none' ? '' : 'none';
     }
 
+    function toggleCard(key) {
+      const body = document.getElementById(`body-${key}`);
+      const chev = document.getElementById(`chev-${key}`);
+      if (!body || !chev) return;
+      const isHidden = body.style.display === 'none';
+      body.style.display = isHidden ? '' : 'none';
+      chev.textContent = isHidden ? '▼' : '►';
+    }
+
+    function saveOrder() {
+      const cards = Array.from(document.querySelectorAll('.card')).map(c => c.dataset.card);
+      localStorage.setItem(orderKey, JSON.stringify(cards));
+    }
+
+    function loadOrder() {
+      const raw = localStorage.getItem(orderKey);
+      if (!raw) return;
+      try {
+        const order = JSON.parse(raw);
+        const grid = document.getElementById('card-grid');
+        order.forEach(id => {
+          const card = document.querySelector(`.card[data-card="${id}"]`);
+          if (card) grid.appendChild(card);
+        });
+      } catch (e) {
+        console.error('Failed to load card order', e);
+      }
+    }
+
+    function initDrag() {
+      const cards = document.querySelectorAll('.card');
+      let dragged = null;
+      cards.forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+          dragged = card;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', card.dataset.card);
+        });
+        card.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+        card.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const grid = document.getElementById('card-grid');
+          if (dragged && dragged !== card) {
+            grid.insertBefore(dragged, card);
+            saveOrder();
+          }
+        });
+      });
+    }
+
     let autoFeed = false;
     let feedInterval = null;
     function toggleAutoFeed() {
@@ -531,6 +623,8 @@
       }
     }
 
+    loadOrder();
+    initDrag();
     loadState().then(() => { loadFeed(); loadHealth(); });
   </script>
 </body>
