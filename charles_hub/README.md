@@ -1,6 +1,6 @@
 # CHARLES Hub (API)
 
-API add-on to hold CHARLES persona and routing state. Includes `/api/state`, `/api/health`, `/api/feed`, `/api/emit` (with feed/notify), and `/api/mark_read`. State persists to `/data/state.json` and is seeded from add-on options.
+API add-on to hold CHARLES persona and routing state. Includes `/api/state`, `/api/health`, `/api/feed`, `/api/emit` (with feed/notify), and `/api/mark_read`. State persists to `/data/state.json` and is seeded from add-on options. Weather and calendar polling emit updates based on your thresholds and selected calendars.
 
 ## Options
 - `persona_prompt` (string): CHARLES persona text.

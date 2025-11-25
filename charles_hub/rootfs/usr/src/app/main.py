@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import time
 import random
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 import httpx
@@ -53,41 +54,54 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "feed_enabled": True,
         "notifications_enabled": True,
         "notify_service": "notify.mobile_app_pixel_9",
-        "notify_tag": "charles_stream",
-        "notify_title": "CHARLES says",
-        "conversation_agent_id": "conversation.openai_conversation",
-        "categories": {
-            "weather": True,
-            "system": True,
-            "vacuum": True,
-            "lighting": True,
-            "arrivals": True,
-            "people": True,
-            "musings": True,
-            "jokes": True,
-        },
-        "feed_categories": {
-            "weather": True,
-            "system": True,
-            "vacuum": True,
-            "lighting": True,
-            "arrivals": True,
-            "people": True,
-            "musings": True,
-            "jokes": True,
-        },
+    "notify_tag": "charles_stream",
+    "notify_title": "CHARLES says",
+    "conversation_agent_id": "conversation.openai_conversation",
+    "categories": {
+        "weather": True,
+        "calendar": True,
+        "system": True,
+        "vacuum": True,
+        "lighting": True,
+        "arrivals": True,
+        "people": True,
+        "musings": True,
+        "jokes": True,
+    },
+    "feed_categories": {
+        "weather": True,
+        "calendar": True,
+        "system": True,
+        "vacuum": True,
+        "lighting": True,
+        "arrivals": True,
+        "people": True,
+        "musings": True,
+        "jokes": True,
+    },
         "quiet_hours_start": options.get("quiet_hours_start", "22:00"),
         "quiet_hours_end": options.get("quiet_hours_end", "07:00"),
         "weather_min_gap": options.get("weather_min_gap", 3600),
         "weather_temp_delta": options.get("weather_temp_delta", 5),
         "weather_condition_change": options.get("weather_condition_change", True),
         "weather_feed_only_minor": options.get("weather_feed_only_minor", False),
-        "weather_entity": options.get("weather_entity", "weather.home"),
-        "weather_poll_interval": options.get("weather_poll_interval", 300),
-        "last_weather_payload": {},
-        "musings_interval_min": options.get("musings_interval_min", 60),
-        "musings_interval_max": options.get("musings_interval_max", 180),
-        "musings_daily_cap": options.get("musings_daily_cap", 4),
+    "weather_entity": options.get("weather_entity", "weather.home"),
+    "weather_poll_interval": options.get("weather_poll_interval", 300),
+    "last_weather_payload": {},
+    "calendar_entities": options.get("calendar_entities", []),
+    "calendar_lead_minutes": options.get("calendar_lead_minutes", 60),
+    "calendar_poll_interval": options.get("calendar_poll_interval", 300),
+    "calendar_morning_enabled": options.get("calendar_morning_enabled", True),
+    "calendar_morning_time": options.get("calendar_morning_time", "07:30"),
+    "calendar_evening_enabled": options.get("calendar_evening_enabled", False),
+    "calendar_evening_time": options.get("calendar_evening_time", "21:00"),
+    "calendar_announced": options.get("calendar_announced", []),
+    "last_calendar_poll": 0.0,
+    "last_morning_date": "",
+    "last_evening_date": "",
+    "musings_interval_min": options.get("musings_interval_min", 60),
+    "musings_interval_max": options.get("musings_interval_max", 180),
+    "musings_daily_cap": options.get("musings_daily_cap", 4),
         "jokes_interval_min": options.get("jokes_interval_min", 120),
         "jokes_interval_max": options.get("jokes_interval_max", 240),
         "jokes_daily_cap": options.get("jokes_daily_cap", 3),
@@ -204,6 +218,37 @@ def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
     return line
 
 
+def parse_time_str(val: str) -> Optional[int]:
+    try:
+        hh, mm = [int(x) for x in val.split(":")]
+        return hh * 60 + mm
+    except Exception:
+        return None
+
+
+def parse_iso_ts(raw: Any) -> Optional[float]:
+    if raw is None:
+        return None
+    try:
+        if isinstance(raw, dict):
+            if "dateTime" in raw:
+                raw = raw["dateTime"]
+            elif "date" in raw:
+                raw = raw["date"]
+        s = str(raw)
+        if len(s) == 10:  # YYYY-MM-DD
+            dt = datetime.fromisoformat(s)
+        else:
+            if s.endswith("Z"):
+                s = s.replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.timestamp()
+    except Exception:
+        return None
+
+
 def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_delta_req: float, condition_change_required: bool) -> Tuple[bool, str]:
     prev_cond = str(previous.get("condition", "")).lower()
     new_cond = str(current.get("condition", "")).lower()
@@ -224,12 +269,147 @@ def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_
     return significant, reason
 
 
+def format_clock(ts: float) -> str:
+    try:
+        formatted = time.strftime("%I:%M %p", time.localtime(ts)).lower()
+        return formatted.lstrip("0")
+    except Exception:
+        return ""
+
+
+async def fetch_calendar_events(entity_id: str, start_iso: str, end_iso: str) -> list:
+    token = os.getenv("SUPERVISOR_TOKEN")
+    if not token or not entity_id:
+        return []
+    url = f"http://supervisor/core/api/calendars/{entity_id}"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            res = await client.get(
+                url,
+                headers={"Authorization": f"Bearer {token}"},
+                params={"start": start_iso, "end": end_iso},
+            )
+            res.raise_for_status()
+            return res.json() or []
+    except Exception as err:
+        print(f"[charles] calendar poll failed for {entity_id}: {err}")
+        return []
+
+
+async def calendar_poll_loop() -> None:
+    while True:
+        try:
+            async with state_lock:
+                interval = max(60, int(state.get("calendar_poll_interval", 300)))
+                entities = [e.strip() for e in state.get("calendar_entities", []) if e.strip()]
+                lead = int(state.get("calendar_lead_minutes", 60))
+                announced = set(state.get("calendar_announced", []))
+                morning_enabled = bool(state.get("calendar_morning_enabled", True))
+                morning_time = parse_time_str(state.get("calendar_morning_time", "07:30") or "07:30")
+                evening_enabled = bool(state.get("calendar_evening_enabled", False))
+                evening_time = parse_time_str(state.get("calendar_evening_time", "21:00") or "21:00")
+                last_morning = state.get("last_morning_date", "")
+                last_evening = state.get("last_evening_date", "")
+            if not entities:
+                await asyncio.sleep(interval)
+                continue
+
+            now_ts = time.time()
+            now_utc = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+            start_iso = now_utc.isoformat()
+            end_iso = (now_utc + timedelta(hours=36)).isoformat()
+            today = time.strftime("%Y-%m-%d", time.localtime(now_ts))
+            tomorrow_ts = now_ts + 86400
+            tomorrow = time.strftime("%Y-%m-%d", time.localtime(tomorrow_ts))
+
+            today_events = []
+            tomorrow_events = []
+
+            for ent in entities:
+                events = await fetch_calendar_events(ent, start_iso, end_iso)
+                for ev in events:
+                    summary = ev.get("summary") or ev.get("title") or "Calendar event"
+                    start_ts = parse_iso_ts(ev.get("start")) or parse_iso_ts(ev.get("start_time"))
+                    if not start_ts:
+                        continue
+                    event_date = time.strftime("%Y-%m-%d", time.localtime(start_ts))
+                    key = f"{ent}|{int(start_ts)}|{summary}"
+                    # Lead-time alert
+                    if (start_ts - now_ts) >= 0 and (start_ts - now_ts) <= (lead * 60) and key not in announced:
+                        ctx = f'"{summary}" starts at {format_clock(start_ts)} ({ent}).'
+                        result = await process_emit(
+                            topic="calendar",
+                            category="calendar",
+                            context=ctx,
+                            route_raw="default",
+                            conversation_id="charles_calendar_event",
+                        )
+                        if result.get("status") != "throttled":
+                            announced.add(key)
+                    if event_date == today:
+                        today_events.append((start_ts, summary, ent))
+                    elif event_date == tomorrow:
+                        tomorrow_events.append((start_ts, summary, ent))
+
+            def summarize(events: list) -> str:
+                if not events:
+                    return ""
+                events_sorted = sorted(events, key=lambda x: x[0])
+                parts = []
+                for st, summ, ent in events_sorted[:8]:
+                    parts.append(f"{format_clock(st)} — {summ} ({ent})")
+                return "; ".join(parts)
+
+            # Morning brief (today)
+            now_minutes = time.localtime(now_ts).tm_hour * 60 + time.localtime(now_ts).tm_min
+            if morning_enabled and morning_time is not None and last_morning != today and now_minutes >= morning_time:
+                summary = summarize(today_events)
+                context = summary or "No calendar events today."
+                result = await process_emit(
+                    topic="calendar",
+                    category="calendar",
+                    context=f"Today's calendar: {context}",
+                    route_raw="default",
+                    conversation_id="charles_calendar_morning",
+                )
+                if result.get("status") != "throttled":
+                    async with state_lock:
+                        state["last_morning_date"] = today
+                        await persist_state()
+
+            # Evening brief (tomorrow)
+            if evening_enabled and evening_time is not None and last_evening != today and now_minutes >= evening_time:
+                summary = summarize(tomorrow_events)
+                context = summary or "No calendar events tomorrow."
+                result = await process_emit(
+                    topic="calendar",
+                    category="calendar",
+                    context=f"Tomorrow's calendar: {context}",
+                    route_raw="default",
+                    conversation_id="charles_calendar_evening",
+                )
+                if result.get("status") != "throttled":
+                    async with state_lock:
+                        state["last_evening_date"] = today
+                        await persist_state()
+
+            async with state_lock:
+                state["calendar_announced"] = list(announced)[-100:]
+                state["last_calendar_poll"] = now_ts
+                await persist_state()
+            await asyncio.sleep(interval)
+        except Exception as err:
+            print(f"[charles] calendar poll loop error: {err}")
+            await asyncio.sleep(120)
+
+
 @app.on_event("startup")
 async def startup() -> None:
     await load_state()
     asyncio.create_task(scheduled_loop("musings"))
     asyncio.create_task(scheduled_loop("jokes"))
     asyncio.create_task(weather_poll_loop())
+    asyncio.create_task(calendar_poll_loop())
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -249,6 +429,7 @@ async def health() -> Dict[str, Any]:
             "last_error": state.get("last_error", ""),
             "next_musing_time": state.get("next_musing_time", 0),
             "next_joke_time": state.get("next_joke_time", 0),
+            "last_calendar_poll": state.get("last_calendar_poll", 0),
         }
 
 

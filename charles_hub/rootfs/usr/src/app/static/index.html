@@ -230,6 +230,21 @@
               </div>
             </td>
           </tr>
+          <tr><td>Calendar</td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" id="btn-calendar" onclick="toggleDetails('calendar')">▼</button></td></tr>
+          <tr id="row-calendar" style="display:none;">
+            <td colspan="4">
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
+                <div><label for="calendar_lead">Lead time (min)</label><input type="number" id="calendar_lead" min="0" step="5"></div>
+                <div><label for="calendar_poll">Poll every (sec)</label><input type="number" id="calendar_poll" min="60" step="30"></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="calendar_morning_enabled"><label for="calendar_morning_enabled">Morning brief</label></div>
+                <div><label for="calendar_morning_time">Morning time</label><input type="time" id="calendar_morning_time" value="07:30"></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="calendar_evening_enabled"><label for="calendar_evening_enabled">Evening brief</label></div>
+                <div><label for="calendar_evening_time">Evening time</label><input type="time" id="calendar_evening_time" value="21:00"></div>
+              </div>
+              <label for="calendar_entities" style="margin-top:8px;">Calendars (entity ids, one per line)</label>
+              <textarea id="calendar_entities" placeholder="calendar.family&#10;calendar.work"></textarea>
+            </td>
+          </tr>
           <tr><td>System</td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td></td></tr>
           <tr><td>Vacuum</td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td></td></tr>
           <tr><td>Lighting</td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td></td></tr>
@@ -327,6 +342,7 @@
           <div class="note" id="health-status">Loading…</div>
           <div class="note" id="health-last"></div>
           <div class="note" id="health-next"></div>
+          <div class="note" id="health-calendar"></div>
           <div class="note" id="health-error"></div>
           <button class="secondary" onclick="loadHealth()">Refresh health</button>
         </div>
@@ -369,8 +385,15 @@
       document.getElementById('weather_delta').value = st.weather_temp_delta ?? 5;
       document.getElementById('weather_condition').checked = st.weather_condition_change ?? true;
       document.getElementById('weather_feed_only_minor').checked = st.weather_feed_only_minor ?? false;
+      document.getElementById('calendar_lead').value = st.calendar_lead_minutes ?? 60;
+      document.getElementById('calendar_poll').value = st.calendar_poll_interval ?? 300;
+      document.getElementById('calendar_morning_enabled').checked = st.calendar_morning_enabled ?? true;
+      document.getElementById('calendar_morning_time').value = st.calendar_morning_time || '07:30';
+      document.getElementById('calendar_evening_enabled').checked = st.calendar_evening_enabled ?? false;
+      document.getElementById('calendar_evening_time').value = st.calendar_evening_time || '21:00';
       const cats = st.categories || {};
       document.getElementById('cat_weather').checked = cats.weather ?? true;
+      document.getElementById('cat_calendar').checked = cats.calendar ?? true;
       document.getElementById('cat_system').checked = cats.system ?? true;
       document.getElementById('cat_vacuum').checked = cats.vacuum ?? true;
       document.getElementById('cat_lighting').checked = cats.lighting ?? true;
@@ -380,6 +403,7 @@
       document.getElementById('cat_jokes').checked = cats.jokes ?? true;
       const feedCats = st.feed_categories || {};
       document.getElementById('feed_weather').checked = feedCats.weather ?? true;
+      document.getElementById('feed_calendar').checked = feedCats.calendar ?? true;
       document.getElementById('feed_system').checked = feedCats.system ?? true;
       document.getElementById('feed_vacuum').checked = feedCats.vacuum ?? true;
       document.getElementById('feed_lighting').checked = feedCats.lighting ?? true;
@@ -396,6 +420,7 @@
       document.getElementById('musing_pool').value = (st.musing_pool || []).join('\\n');
       document.getElementById('joke_pool').value = (st.joke_pool || []).join('\\n');
       document.getElementById('news_urls').value = (st.news_urls || []).join('\\n');
+      document.getElementById('calendar_entities').value = (st.calendar_entities || []).join('\\n');
       document.getElementById('unread-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
       const unread = st.unread_log || [];
       document.getElementById('unread-log').textContent = unread.length ? `Unread log: ${unread.join(' | ')}` : '';
@@ -405,6 +430,7 @@
     function collectState() {
       const categories = {
         weather: document.getElementById('cat_weather').checked,
+        calendar: document.getElementById('cat_calendar').checked,
         system: document.getElementById('cat_system').checked,
         vacuum: document.getElementById('cat_vacuum').checked,
         lighting: document.getElementById('cat_lighting').checked,
@@ -415,6 +441,7 @@
       };
       const feed_categories = {
         weather: document.getElementById('feed_weather').checked,
+        calendar: document.getElementById('feed_calendar').checked,
         system: document.getElementById('feed_system').checked,
         vacuum: document.getElementById('feed_vacuum').checked,
         lighting: document.getElementById('feed_lighting').checked,
@@ -438,11 +465,18 @@
         weather_temp_delta: Number(document.getElementById('weather_delta').value) || 0,
         weather_condition_change: document.getElementById('weather_condition').checked,
         weather_feed_only_minor: document.getElementById('weather_feed_only_minor').checked,
+        calendar_lead_minutes: Number(document.getElementById('calendar_lead').value) || 0,
+        calendar_poll_interval: Number(document.getElementById('calendar_poll').value) || 300,
+        calendar_morning_enabled: document.getElementById('calendar_morning_enabled').checked,
+        calendar_morning_time: document.getElementById('calendar_morning_time').value || '07:30',
+        calendar_evening_enabled: document.getElementById('calendar_evening_enabled').checked,
+        calendar_evening_time: document.getElementById('calendar_evening_time').value || '21:00',
         categories,
         feed_categories,
         musing_pool: document.getElementById('musing_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
         joke_pool: document.getElementById('joke_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),
         news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
+        calendar_entities: document.getElementById('calendar_entities').value.split('\\n').map(v => v.trim()).filter(Boolean),
         musings_interval_min: Number(document.getElementById('musing_min').value) || 0,
         musings_interval_max: Number(document.getElementById('musing_max').value) || 0,
         musings_daily_cap: Number(document.getElementById('musing_cap').value) || 0,
@@ -541,6 +575,8 @@
         const nextM = data.next_musing_time ? new Date(data.next_musing_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         const nextJ = data.next_joke_time ? new Date(data.next_joke_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ}`;
+        const cal = data.last_calendar_poll ? new Date(data.last_calendar_poll * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        document.getElementById('health-calendar').textContent = `Last calendar poll: ${cal}`;
         document.getElementById('health-error').textContent = data.last_error ? `Last error: ${data.last_error}` : '';
       } catch (err) {
         console.error(err);
