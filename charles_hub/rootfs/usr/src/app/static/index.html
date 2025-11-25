@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CHARLES Hub</title>
+  <script src="https://unpkg.com/muuri@0.9.5/dist/muuri.min.js"></script>
   <style>
     :root {
       --bg: #030c0a;
@@ -32,13 +33,17 @@
       text-shadow: 0 0 12px rgba(50, 255, 140, 0.45);
     }
     .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      grid-auto-flow: row dense;
-      gap: 14px;
+      position: relative;
       max-width: 1400px;
       margin: 0 auto;
     }
+    .item {
+      position: absolute;
+      width: 320px;
+    }
+    @media (max-width: 1100px) { .item { width: 300px; } }
+    @media (max-width: 900px) { .item { width: 260px; } }
+    @media (max-width: 600px) { .item { width: 100%; position: relative; } }
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -158,27 +163,30 @@
 <body>
   <h1>CHARLES Hub</h1>
   <div class="grid" id="card-grid">
-    <div class="card" draggable="true" data-card="persona">
-      <div class="card-header" onclick="toggleCard('persona')">
-        <h2>Persona</h2>
-        <span class="chevron" id="chev-persona">▼</span>
-      </div>
-      <div class="card-body" id="body-persona">
-      <label for="persona">Prompt</label>
-      <textarea id="persona"></textarea>
-      <button onclick="saveState()">Save persona</button>
-      <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Prompt Pools</h3>
-      <label for="news_urls">News URLs (one per line)</label>
-      <textarea id="news_urls"></textarea>
-      <button onclick="saveState()">Save persona</button>
+    <div class="item" data-id="persona">
+      <div class="card" data-card="persona">
+        <div class="card-header" onclick="toggleCard('persona')">
+          <h2>Persona</h2>
+          <span class="chevron" id="chev-persona">▼</span>
+        </div>
+        <div class="card-body" id="body-persona">
+          <label for="persona">Prompt</label>
+          <textarea id="persona"></textarea>
+          <button onclick="saveState()">Save persona</button>
+          <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Prompt Pools</h3>
+          <label for="news_urls">News URLs (one per line)</label>
+          <textarea id="news_urls"></textarea>
+          <button onclick="saveState()">Save persona</button>
+        </div>
       </div>
     </div>
-    <div class="card" draggable="true" data-card="routing">
-      <div class="card-header" onclick="toggleCard('routing')">
-        <h2>Routing & Notify</h2>
-        <span class="chevron" id="chev-routing">▼</span>
-      </div>
-      <div class="card-body" id="body-routing">
+    <div class="item" data-id="routing">
+      <div class="card" data-card="routing">
+        <div class="card-header" onclick="toggleCard('routing')">
+          <h2>Routing & Notify</h2>
+          <span class="chevron" id="chev-routing">▼</span>
+        </div>
+        <div class="card-body" id="body-routing">
       <label for="route_default">Default route</label>
       <select id="route_default">
         <option value="both">both</option>
@@ -256,14 +264,16 @@
         <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
       </div>
       <button onclick="saveState()">Save routing</button>
+        </div>
       </div>
     </div>
-    <div class="card" draggable="true" data-card="emit">
-      <div class="card-header" onclick="toggleCard('emit')">
-        <h2>Emit Test</h2>
-        <span class="chevron" id="chev-emit">▼</span>
-      </div>
-      <div class="card-body" id="body-emit">
+    <div class="item" data-id="emit">
+      <div class="card" data-card="emit">
+        <div class="card-header" onclick="toggleCard('emit')">
+          <h2>Emit Test</h2>
+          <span class="chevron" id="chev-emit">▼</span>
+        </div>
+        <div class="card-body" id="body-emit">
       <label for="emit_topic">Topic</label>
       <input type="text" id="emit_topic" value="general">
       <label for="emit_category">Category</label>
@@ -279,14 +289,16 @@
         <option value="none">none</option>
       </select>
       <button onclick="emit()">Send emit</button>
+        </div>
       </div>
     </div>
-    <div class="card" draggable="true" data-card="feed">
-      <div class="card-header" onclick="toggleCard('feed')">
-        <h2>Feed</h2>
-        <span class="chevron" id="chev-feed">▼</span>
-      </div>
-      <div class="card-body" id="body-feed">
+    <div class="item" data-id="feed">
+      <div class="card" data-card="feed">
+        <div class="card-header" onclick="toggleCard('feed')">
+          <h2>Feed</h2>
+          <span class="chevron" id="chev-feed">▼</span>
+        </div>
+        <div class="card-body" id="body-feed">
       <div class="note" id="feed-meta">Loading feed…</div>
       <div class="feed" id="feed"></div>
       <div class="note" id="unread-meta">Unread: 0</div>
@@ -296,17 +308,20 @@
         <button class="secondary" onclick="toggleAutoFeed()" id="auto-btn">Auto-refresh</button>
       </div>
       <div class="note" id="unread-log"></div>
+        </div>
       </div>
     </div>
-    <div class="card" draggable="true" data-card="health">
-      <div class="card-header" onclick="toggleCard('health')">
-        <h2>Health</h2>
-        <span class="chevron" id="chev-health">▼</span>
-      </div>
-      <div class="card-body" id="body-health">
-      <div class="note" id="health-status">Loading…</div>
-      <div class="note" id="health-last"></div>
-      <button class="secondary" onclick="loadHealth()">Refresh health</button>
+    <div class="item" data-id="health">
+      <div class="card" data-card="health">
+        <div class="card-header" onclick="toggleCard('health')">
+          <h2>Health</h2>
+          <span class="chevron" id="chev-health">▼</span>
+        </div>
+        <div class="card-body" id="body-health">
+          <div class="note" id="health-status">Loading…</div>
+          <div class="note" id="health-last"></div>
+          <button class="secondary" onclick="loadHealth()">Refresh health</button>
+        </div>
       </div>
     </div>
   </div>
@@ -319,6 +334,7 @@
       return fetch(url, opts);
     };
     const orderKey = 'charles_cards_order';
+    let gridMuuri = null;
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
       el.textContent = txt;
@@ -566,65 +582,31 @@
     }
 
     function saveOrder() {
-      const cards = Array.from(document.querySelectorAll('.card')).map(c => c.dataset.card);
-      localStorage.setItem(orderKey, JSON.stringify(cards));
+      if (!gridMuuri) return;
+      const order = gridMuuri.getItems().map(item => item.getElement().dataset.id);
+      localStorage.setItem(orderKey, JSON.stringify(order));
     }
 
-    function loadOrder() {
+    function initMuuri() {
+      gridMuuri = new Muuri('#card-grid', {
+        items: '.item',
+        layout: { fillGaps: true },
+        dragEnabled: true,
+        dragHandle: '.card-header',
+      });
       const raw = localStorage.getItem(orderKey);
-      if (!raw) return;
-      try {
-        const order = JSON.parse(raw);
-        const grid = document.getElementById('card-grid');
-        order.forEach(id => {
-          const card = document.querySelector(`.card[data-card="${id}"]`);
-          if (card) grid.appendChild(card);
-        });
-      } catch (e) {
-        console.error('Failed to load card order', e);
+      if (raw) {
+        try {
+          const order = JSON.parse(raw);
+          const current = gridMuuri.getItems();
+          const map = Object.fromEntries(current.map(i => [i.getElement().dataset.id, i]));
+          const newOrder = order.map(id => map[id]).filter(Boolean);
+          if (newOrder.length) gridMuuri.sort(newOrder);
+        } catch (e) {
+          console.error('Failed to load card order', e);
+        }
       }
-    }
-
-    function initDrag() {
-      const grid = document.getElementById('card-grid');
-      const cards = document.querySelectorAll('.card');
-      let dragged = null;
-      cards.forEach(card => {
-        card.addEventListener('dragstart', (e) => {
-          dragged = card;
-          card.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
-        });
-        card.addEventListener('dragend', () => {
-          card.classList.remove('dragging');
-          dragged = null;
-          saveOrder();
-        });
-      });
-      grid.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const afterElement = getDragAfterElement(grid, e.clientY);
-        const dragging = document.querySelector('.dragging');
-        if (!dragging) return;
-        if (afterElement == null) {
-          grid.appendChild(dragging);
-        } else {
-          grid.insertBefore(dragging, afterElement);
-        }
-      });
-    }
-
-    function getDragAfterElement(container, y) {
-      const elements = [...container.querySelectorAll('.card:not(.dragging)')];
-      return elements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) {
-          return { offset: offset, element: child };
-        } else {
-          return closest;
-        }
-      }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+      gridMuuri.on('moveEnd', saveOrder);
     }
 
     let autoFeed = false;
@@ -642,8 +624,7 @@
       }
     }
 
-    loadOrder();
-    initDrag();
+    initMuuri();
     loadState().then(() => { loadFeed(); loadHealth(); });
   </script>
 </body>
