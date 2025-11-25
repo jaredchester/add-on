@@ -38,6 +38,7 @@
       max-width: 1500px;
       margin: 0 auto;
       padding: var(--gap);
+      min-height: 60vh;
     }
     .item {
       position: absolute;
@@ -51,6 +52,12 @@
     .item.muuri-item-dragging { z-index: 20; }
     .item.muuri-item-releasing { z-index: 10; }
     .item.muuri-item-hidden { z-index: 0; }
+    .item.muuri-item-placeholder { z-index: 5; }
+    .item.muuri-item-placeholder .card {
+      opacity: 0.25;
+      border: 1px dashed var(--accent);
+      box-shadow: none;
+    }
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -651,11 +658,24 @@
     function initMuuri() {
       gridMuuri = new Muuri('#card-grid', {
         items: '.item',
-        layout: { fillGaps: true },
+        layout: { fillGaps: true, rounding: false },
         dragEnabled: true,
         dragHandle: '.card-header',
         layoutOnResize: true,
         layoutOnInit: false,
+        dragPlaceholder: {
+          enabled: true,
+          duration: 200,
+          createElement: (item) => {
+            const el = item.getElement().cloneNode(true);
+            el.classList.add('muuri-item-placeholder');
+            el.style.height = `${item.getHeight()}px`;
+            el.style.width = `${item.getWidth()}px`;
+            return el;
+          },
+        },
+        dragSortPredicate: { threshold: 50, action: 'move' },
+        dragSort: () => gridMuuri ? [gridMuuri] : [],
       });
       gridMuuri.refreshItems();
       gridMuuri.layout(true);
