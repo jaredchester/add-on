@@ -14,11 +14,12 @@
       --muted: #8aa59b;
       --accent: #32ff8c;
       --shadow: 0 0 18px rgba(50, 255, 140, 0.12);
+      --gap: 14px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 16px;
+      padding: 16px 10px 24px;
       background: radial-gradient(circle at 20% 20%, #0b1612, #040805 65%);
       color: var(--text);
       font-family: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
@@ -34,23 +35,31 @@
     }
     .grid {
       position: relative;
-      max-width: 1400px;
+      max-width: 1500px;
       margin: 0 auto;
+      padding: var(--gap);
     }
     .item {
       position: absolute;
-      width: 320px;
+      width: min(420px, calc(50% - var(--gap)));
+      margin: calc(var(--gap) / 2);
     }
-    @media (max-width: 1100px) { .item { width: 300px; } }
-    @media (max-width: 900px) { .item { width: 260px; } }
-    @media (max-width: 600px) { .item { width: 100%; position: relative; } }
+    @media (max-width: 1200px) { .item { width: calc(50% - var(--gap)); } }
+    @media (max-width: 900px) { .item { width: calc(100% - var(--gap)); } }
+    @media (max-width: 600px) { .item { width: calc(100% - var(--gap)); position: relative; } }
+    .item.muuri-item-dragging { z-index: 20; }
+    .item.muuri-item-releasing { z-index: 10; }
+    .item.muuri-item-hidden { z-index: 0; }
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 14px;
+      padding: 14px 14px 16px;
       box-shadow: var(--shadow);
       align-self: start;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
     .card h2 {
       margin: 0 0 10px;
@@ -69,14 +78,11 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      cursor: pointer;
-    }
-    .chevron {
-      font-size: 1rem;
-      color: var(--text);
+      cursor: grab;
+      gap: 8px;
     }
     .card-body {
-      margin-top: 8px;
+      margin-top: 2px;
     }
     label {
       display: block;
@@ -171,14 +177,12 @@
   <div class="grid" id="card-grid">
     <div class="item" data-id="persona">
       <div class="card" data-card="persona">
-        <div class="card-header" onclick="toggleCard('persona')">
+        <div class="card-header">
           <h2>Persona</h2>
-          <span class="chevron" id="chev-persona">▼</span>
         </div>
         <div class="card-body" id="body-persona">
           <label for="persona">Prompt</label>
           <textarea id="persona"></textarea>
-          <button onclick="saveState()">Save persona</button>
           <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Prompt Pools</h3>
           <label for="news_urls">News URLs (one per line)</label>
           <textarea id="news_urls"></textarea>
@@ -188,9 +192,8 @@
     </div>
     <div class="item" data-id="routing">
       <div class="card" data-card="routing">
-        <div class="card-header" onclick="toggleCard('routing')">
+        <div class="card-header">
           <h2>Routing & Notify</h2>
-          <span class="chevron" id="chev-routing">▼</span>
         </div>
         <div class="card-body" id="body-routing">
       <label for="route_default">Default route</label>
@@ -216,7 +219,7 @@
           <tr><th>Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell"></th></tr>
         </thead>
         <tbody>
-          <tr><td>Weather</td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" onclick="toggleDetails('weather')">▼</button></td></tr>
+          <tr><td>Weather</td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" id="btn-weather" onclick="toggleDetails('weather')">▼</button></td></tr>
           <tr id="row-weather" style="display:none;">
             <td colspan="4">
               <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
@@ -234,7 +237,7 @@
           <tr><td>People</td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td></td></tr>
           <tr>
             <td>Musings</td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td>
-            <td class="checkbox-cell"><button class="secondary" onclick="toggleDetails('musings')">▼</button></td>
+            <td class="checkbox-cell"><button class="secondary" id="btn-musings" onclick="toggleDetails('musings')">▼</button></td>
           </tr>
           <tr id="row-musings" style="display:none;">
             <td colspan="4">
@@ -249,7 +252,7 @@
           </tr>
           <tr>
             <td>Jokes</td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td>
-            <td class="checkbox-cell"><button class="secondary" onclick="toggleDetails('jokes')">▼</button></td>
+            <td class="checkbox-cell"><button class="secondary" id="btn-jokes" onclick="toggleDetails('jokes')">▼</button></td>
           </tr>
           <tr id="row-jokes" style="display:none;">
             <td colspan="4">
@@ -275,9 +278,8 @@
     </div>
     <div class="item" data-id="emit">
       <div class="card" data-card="emit">
-        <div class="card-header" onclick="toggleCard('emit')">
+        <div class="card-header">
           <h2>Emit Test</h2>
-          <span class="chevron" id="chev-emit">▼</span>
         </div>
         <div class="card-body" id="body-emit">
       <label for="emit_topic">Topic</label>
@@ -300,9 +302,8 @@
     </div>
     <div class="item" data-id="feed">
       <div class="card" data-card="feed">
-        <div class="card-header" onclick="toggleCard('feed')">
+        <div class="card-header">
           <h2>Feed</h2>
-          <span class="chevron" id="chev-feed">▼</span>
         </div>
         <div class="card-body" id="body-feed">
       <div class="note" id="feed-meta">Loading feed…</div>
@@ -319,9 +320,8 @@
     </div>
     <div class="item" data-id="health">
       <div class="card" data-card="health">
-        <div class="card-header" onclick="toggleCard('health')">
+        <div class="card-header">
           <h2>Health</h2>
-          <span class="chevron" id="chev-health">▼</span>
         </div>
         <div class="card-body" id="body-health">
           <div class="note" id="health-status">Loading…</div>
@@ -343,6 +343,11 @@
     };
     const orderKey = 'charles_cards_order';
     let gridMuuri = null;
+    const reflowGrid = () => {
+      if (!gridMuuri) return;
+      gridMuuri.refreshItems();
+      gridMuuri.layout();
+    };
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
       el.textContent = txt;
@@ -394,6 +399,7 @@
       document.getElementById('unread-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
       const unread = st.unread_log || [];
       document.getElementById('unread-log').textContent = unread.length ? `Unread log: ${unread.join(' | ')}` : '';
+      reflowGrid();
     }
 
     function collectState() {
@@ -514,6 +520,8 @@
       } catch (err) {
         console.error(err);
         setStatus('Failed to load feed.', false);
+      } finally {
+        reflowGrid();
       }
     }
 
@@ -537,6 +545,8 @@
       } catch (err) {
         console.error(err);
         setStatus('Failed to load health.', false);
+      } finally {
+        reflowGrid();
       }
     }
 
@@ -577,17 +587,11 @@
 
     function toggleDetails(kind) {
       const row = document.getElementById(`row-${kind}`);
+      const btn = document.getElementById(`btn-${kind}`);
       if (!row) return;
       row.style.display = row.style.display === 'none' ? '' : 'none';
-    }
-
-    function toggleCard(key) {
-      const body = document.getElementById(`body-${key}`);
-      const chev = document.getElementById(`chev-${key}`);
-      if (!body || !chev) return;
-      const isHidden = body.style.display === 'none';
-      body.style.display = isHidden ? '' : 'none';
-      chev.textContent = isHidden ? '▼' : '►';
+      if (btn) btn.textContent = row.style.display === 'none' ? '▼' : '▲';
+      requestAnimationFrame(reflowGrid);
     }
 
     function saveOrder() {
@@ -634,6 +638,7 @@
     }
 
     initMuuri();
+    window.addEventListener('resize', () => requestAnimationFrame(reflowGrid));
     loadState().then(() => { loadFeed(); loadHealth(); });
   </script>
 </body>
