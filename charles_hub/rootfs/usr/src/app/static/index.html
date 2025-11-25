@@ -585,27 +585,45 @@
     }
 
     function initDrag() {
+      const grid = document.getElementById('card-grid');
       const cards = document.querySelectorAll('.card');
       let dragged = null;
       cards.forEach(card => {
         card.addEventListener('dragstart', (e) => {
           dragged = card;
+          card.classList.add('dragging');
           e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', card.dataset.card);
         });
-        card.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-        });
-        card.addEventListener('drop', (e) => {
-          e.preventDefault();
-          const grid = document.getElementById('card-grid');
-          if (dragged && dragged !== card) {
-            grid.insertBefore(dragged, card);
-            saveOrder();
-          }
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          dragged = null;
+          saveOrder();
         });
       });
+      grid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(grid, e.clientY);
+        const dragging = document.querySelector('.dragging');
+        if (!dragging) return;
+        if (afterElement == null) {
+          grid.appendChild(dragging);
+        } else {
+          grid.insertBefore(dragging, afterElement);
+        }
+      });
+    }
+
+    function getDragAfterElement(container, y) {
+      const elements = [...container.querySelectorAll('.card:not(.dragging)')];
+      return elements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
     }
 
     let autoFeed = false;
