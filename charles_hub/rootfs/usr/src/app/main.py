@@ -101,6 +101,8 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "musing_count_today": 0,
         "joke_count_today": 0,
         "last_weather_time": 0.0,
+        "next_musing_time": 0.0,
+        "next_joke_time": 0.0,
         "last_entry_key": "",
         "last_entry_time": 0.0,
         "unread_count": 0,
@@ -241,7 +243,13 @@ async def root_page() -> HTMLResponse:
 @app.get("/api/health")
 async def health() -> Dict[str, Any]:
     async with state_lock:
-        return {"status": "ok", "last_emit": state.get("last_emit", {}), "last_error": state.get("last_error", "")}
+        return {
+            "status": "ok",
+            "last_emit": state.get("last_emit", {}),
+            "last_error": state.get("last_error", ""),
+            "next_musing_time": state.get("next_musing_time", 0),
+            "next_joke_time": state.get("next_joke_time", 0),
+        }
 
 
 @app.get("/api/state")
@@ -442,6 +450,10 @@ async def scheduled_loop(kind: str) -> None:
                 interval_min = int(state.get(f"{kind}_interval_min", 0))
                 interval_max = int(state.get(f"{kind}_interval_max", max(interval_min, 60)))
             delay_minutes = random.randint(interval_min, max(interval_min, interval_max)) if interval_min > 0 else 60
+            next_fire = time.time() + (delay_minutes * 60)
+            async with state_lock:
+                state[f"next_{kind}_time"] = next_fire
+                await persist_state()
             await asyncio.sleep(delay_minutes * 60)
 
             async with state_lock:
@@ -474,7 +486,9 @@ async def scheduled_loop(kind: str) -> None:
             if result.get("status") != "throttled":
                 async with state_lock:
                     state[count_key] = state.get(count_key, 0) + 1
-                    state[f"last_{kind}_time"] = time.time()
+                    now_val = time.time()
+                    state[f"last_{kind}_time"] = now_val
+                    state[f"next_{kind}_time"] = now_val + (delay_minutes * 60)
                     await persist_state()
         except Exception as err:
             print(f"[charles] scheduler error ({kind}): {err}")

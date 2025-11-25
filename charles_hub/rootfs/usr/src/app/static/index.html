@@ -59,6 +59,12 @@
       color: var(--accent);
       text-transform: uppercase;
     }
+    .card h3.inline {
+      margin: 4px 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
     .card-header {
       display: flex;
       align-items: center;
@@ -320,6 +326,8 @@
         <div class="card-body" id="body-health">
           <div class="note" id="health-status">Loading…</div>
           <div class="note" id="health-last"></div>
+          <div class="note" id="health-next"></div>
+          <div class="note" id="health-error"></div>
           <button class="secondary" onclick="loadHealth()">Refresh health</button>
         </div>
       </div>
@@ -522,9 +530,10 @@
         } else {
           document.getElementById('health-last').textContent = 'Last emit: none';
         }
-        if (data.last_error) {
-          setStatus(`Last error: ${data.last_error}`, false);
-        }
+        const nextM = data.next_musing_time ? new Date(data.next_musing_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        const nextJ = data.next_joke_time ? new Date(data.next_joke_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ}`;
+        document.getElementById('health-error').textContent = data.last_error ? `Last error: ${data.last_error}` : '';
       } catch (err) {
         console.error(err);
         setStatus('Failed to load health.', false);
