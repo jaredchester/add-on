@@ -46,6 +46,10 @@
       padding: calc(var(--gap) / 2);
       margin: 0;
     }
+    .item-content {
+      position: relative;
+      width: 100%;
+    }
     @media (max-width: 1200px) { .item { width: calc(50% - var(--gap)); } }
     @media (max-width: 900px) { .item { width: calc(100% - var(--gap)); } }
     @media (max-width: 600px) { .item { width: calc(100% - var(--gap)); position: relative; } }
@@ -53,6 +57,9 @@
     .item.muuri-item-releasing { z-index: 10; }
     .item.muuri-item-hidden { z-index: 0; }
     .item.muuri-item-placeholder { z-index: 5; }
+    .item.muuri-item-placeholder .item-content {
+      width: 100%;
+    }
     .item.muuri-item-placeholder .card {
       opacity: 0.25;
       border: 1px dashed var(--accent);
@@ -192,6 +199,7 @@
   <h1>CHARLES Hub</h1>
   <div class="grid" id="card-grid">
     <div class="item" data-id="persona">
+      <div class="item-content">
       <div class="card" data-card="persona">
         <div class="card-header">
           <h2>Persona</h2>
@@ -205,8 +213,10 @@
           <button onclick="saveState()">Save persona</button>
         </div>
       </div>
+      </div>
     </div>
     <div class="item" data-id="routing">
+      <div class="item-content">
       <div class="card" data-card="routing">
         <div class="card-header">
           <h2>Routing & Notify</h2>
@@ -237,8 +247,10 @@
       <button onclick="saveState()">Save routing</button>
         </div>
       </div>
+      </div>
     </div>
     <div class="item" data-id="domains">
+      <div class="item-content">
       <div class="card" data-card="domains">
         <div class="card-header">
           <h2>Domains</h2>
@@ -318,8 +330,10 @@
       <button style="margin-top:10px;" onclick="saveState()">Save domains</button>
         </div>
       </div>
+      </div>
     </div>
     <div class="item" data-id="emit">
+      <div class="item-content">
       <div class="card" data-card="emit">
         <div class="card-header">
           <h2>Emit Test</h2>
@@ -342,8 +356,10 @@
       <button onclick="emit()">Send emit</button>
         </div>
       </div>
+      </div>
     </div>
     <div class="item" data-id="feed">
+      <div class="item-content">
       <div class="card" data-card="feed">
         <div class="card-header">
           <h2>Feed</h2>
@@ -360,8 +376,10 @@
       <div class="note" id="unread-log"></div>
         </div>
       </div>
+      </div>
     </div>
     <div class="item" data-id="health">
+      <div class="item-content">
       <div class="card" data-card="health">
         <div class="card-header">
           <h2>Health</h2>
@@ -374,6 +392,7 @@
           <div class="note" id="health-error"></div>
           <button class="secondary" onclick="loadHealth()">Refresh health</button>
         </div>
+      </div>
       </div>
     </div>
   </div>
