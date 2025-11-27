@@ -24,6 +24,7 @@ DEFAULT_PROMPT = (
     "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – "
     "a sardonic, witty butler. Reply in one short sentence."
 )
+RECENT_LIMIT = 10
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -123,6 +124,14 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "unread_log": [],
         "last_emit": {},
         "last_error": "",
+        "recent_seeds": {
+            "jokes": [],
+            "musings": [],
+        },
+        "recent_outputs": {
+            "jokes": [],
+            "musings": [],
+        },
     }
 
 
@@ -249,7 +258,15 @@ def parse_iso_ts(raw: Any) -> Optional[float]:
         return None
 
 
-async def build_quick_context(category: str) -> Tuple[str, str]:
+def choose_seed(category: str, pool: List[str]) -> Optional[str]:
+    if not pool:
+        return None
+    recent = state.get("recent_seeds", {}).get(category, [])
+    candidates = [p for p in pool if p not in recent]
+    return random.choice(candidates or pool)
+
+
+async def build_quick_context(category: str) -> Tuple[str, str, Optional[str]]:
     cat = category.lower()
     async with state_lock:
         st = dict(state)
@@ -258,33 +275,33 @@ async def build_quick_context(category: str) -> Tuple[str, str]:
         if payload:
             cond = payload.get("condition", "?")
             temp = payload.get("temperature", "?")
-            return (f"Weather update: {cond} at {temp}°.", "weather")
-        return ("Share the current weather briefly.", "weather")
+            return (f"Weather update: {cond} at {temp}°.", "weather", None)
+        return ("Share the current weather briefly.", "weather", None)
     if cat == "calendar":
-        return ("Share today's and tomorrow's upcoming calendar items briefly.", "calendar")
+        return ("Share today's and tomorrow's upcoming calendar items briefly.", "calendar", None)
     if cat == "musings":
         pool: List[str] = st.get("musing_pool") or []
-        if pool:
-            seed = random.choice(pool)
-            return (f"Seed: {seed}\nRespond with one short, wry musing inspired by this seed. Keep it to one or two sentences.", "musings")
-        return ("Share one short, wry house musing in one or two sentences.", "musings")
+        seed = choose_seed("musings", pool)
+        if seed:
+            return (f"Seed: {seed}\nRespond with one short, wry musing inspired by this seed. Keep it to one or two sentences. Avoid repeating earlier musings today.", "musings", seed)
+        return ("Share one short, wry house musing in one or two sentences. Avoid repeating earlier musings today.", "musings", None)
     if cat == "jokes":
         pool: List[str] = st.get("joke_pool") or []
-        if pool:
-            seed = random.choice(pool)
-            return (f"Seed: {seed}\nTell exactly one short joke based on this seed. Do not list multiple jokes.", "jokes")
-        return ("Tell exactly one short joke. Do not list multiple jokes.", "jokes")
+        seed = choose_seed("jokes", pool)
+        if seed:
+            return (f"Seed: {seed}\nTell exactly one short joke based on this seed. Avoid repeating earlier jokes today. Return only one short joke.", "jokes", seed)
+        return ("Tell exactly one short joke. Avoid repeating earlier jokes today. Return only one short joke.", "jokes", None)
     if cat == "lighting":
-        return ("Summarize current lighting status and any recent changes in one sentence.", "lighting")
+        return ("Summarize current lighting status and any recent changes in one sentence.", "lighting", None)
     if cat == "arrivals":
-        return ("Share the latest arrival/departure update in one sentence.", "arrivals")
+        return ("Share the latest arrival/departure update in one sentence.", "arrivals", None)
     if cat == "people":
-        return ("Share a brief status update about the household in one sentence.", "people")
+        return ("Share a brief status update about the household in one sentence.", "people", None)
     if cat == "vacuum":
-        return ("Share the current vacuum status in one sentence.", "vacuum")
+        return ("Share the current vacuum status in one sentence.", "vacuum", None)
     if cat == "system":
-        return ("System check-in and recent notable events in one sentence.", "system")
-    return (f"Share a quick {cat} update in one sentence.", cat)
+        return ("System check-in and recent notable events in one sentence.", "system", None)
+    return (f"Share a quick {cat} update in one sentence.", cat, None)
 
 
 def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_delta_req: float, condition_change_required: bool) -> Tuple[bool, str]:
@@ -313,6 +330,21 @@ def format_clock(ts: float) -> str:
         return formatted.lstrip("0")
     except Exception:
         return ""
+
+
+def push_recent(category: str, seed: Optional[str], message: str) -> None:
+    if category not in {"jokes", "musings"}:
+        return
+    recent_seeds = state.setdefault("recent_seeds", {"jokes": [], "musings": []})
+    recent_outputs = state.setdefault("recent_outputs", {"jokes": [], "musings": []})
+    if seed:
+        arr = recent_seeds.setdefault(category, [])
+        arr.insert(0, seed)
+        del arr[RECENT_LIMIT:]
+    if message:
+        arr = recent_outputs.setdefault(category, [])
+        arr.insert(0, message[:200])
+        del arr[RECENT_LIMIT:]
 
 
 async def fetch_calendar_events(entity_id: str, start_iso: str, end_iso: str) -> list:
@@ -506,6 +538,7 @@ async def process_emit(
     prompt_override: Optional[str] = None,
     weather_payload: Optional[Dict[str, Any]] = None,
     use_raw_context: bool = False,
+    seed_tag: Optional[str] = None,
 ) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
@@ -595,6 +628,8 @@ async def process_emit(
             existing = state.get("unread_log", [])
             state["unread_log"] = ([unread_entry] + existing)[:5]
             state["unread_count"] = int(state.get("unread_count", 0)) + 1
+        if category.lower() in {"jokes", "musings"}:
+            push_recent(category.lower(), seed_tag, message_text)
         state["last_emit"] = {
             "time": now_ts,
             "topic": topic,
@@ -643,7 +678,7 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
 @app.post("/api/trigger")
 async def trigger(payload: Dict[str, Any]) -> JSONResponse:
     category = payload.get("category", "system")
-    context, topic = await build_quick_context(category)
+    context, topic, seed = await build_quick_context(category)
     result = await process_emit(
         topic=topic,
         category=category,
@@ -651,6 +686,7 @@ async def trigger(payload: Dict[str, Any]) -> JSONResponse:
         route_raw="default",
         conversation_id=f"charles_trigger_{category}",
         use_raw_context=False,
+        seed_tag=seed,
     )
     if result.get("status") == "throttled":
         return JSONResponse(result, status_code=202)
@@ -715,11 +751,11 @@ async def scheduled_loop(kind: str) -> None:
                     continue
 
                 pool = state.get(f"{kind}_pool", [])
-                if pool:
-                    seed = random.choice(pool)
+                seed = choose_seed(kind, pool)
+                if seed:
                     context = (
                         f"Seed: {seed}\n"
-                        f"{'Tell exactly one short joke based on this seed.' if kind=='jokes' else 'Respond with one short, wry musing inspired by this seed. Keep it to one or two sentences.'}"
+                        f"{'Tell exactly one short joke based on this seed. Avoid repeating earlier jokes today. Return only one short joke.' if kind=='jokes' else 'Respond with one short, wry musing inspired by this seed. Keep it to one or two sentences. Avoid repeating earlier musings today.'}"
                     )
                 else:
                     context = f"Share one short {kind[:-1]} update in one sentence."
@@ -729,6 +765,7 @@ async def scheduled_loop(kind: str) -> None:
                 context=context,
                 route_raw="default",
                 conversation_id=f"charles_{kind}",
+                seed_tag=seed,
             )
             if result.get("status") != "throttled":
                 async with state_lock:
