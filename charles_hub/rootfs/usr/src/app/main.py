@@ -60,6 +60,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "conversation_agent_id": "conversation.openai_conversation",
     "categories": {
         "weather": True,
+        "trivia": True,
         "calendar": True,
         "system": True,
         "vacuum": True,
@@ -71,6 +72,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     },
     "feed_categories": {
         "weather": True,
+        "trivia": True,
         "calendar": True,
         "system": True,
         "vacuum": True,
@@ -106,33 +108,44 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "jokes_interval_min": options.get("jokes_interval_min", 120),
         "jokes_interval_max": options.get("jokes_interval_max", 240),
         "jokes_daily_cap": options.get("jokes_daily_cap", 3),
-        "musing_pool": options.get("musing_pool", []),
-        "joke_pool": options.get("joke_pool", []),
-        "news_urls": options.get("news_urls", []),
-        "last_musing_time": 0.0,
-        "last_joke_time": 0.0,
-        "musing_count_date": "",
-        "joke_count_date": "",
-        "musing_count_today": 0,
-        "joke_count_today": 0,
-        "last_weather_time": 0.0,
-        "next_musing_time": 0.0,
-        "next_joke_time": 0.0,
-        "last_entry_key": "",
-        "last_entry_time": 0.0,
-        "unread_count": 0,
-        "unread_log": [],
-        "last_emit": {},
-        "last_error": "",
-        "recent_seeds": {
-            "jokes": [],
-            "musings": [],
-        },
-        "recent_outputs": {
-            "jokes": [],
-            "musings": [],
-        },
-    }
+    "musing_pool": options.get("musing_pool", []),
+    "joke_pool": options.get("joke_pool", []),
+    "trivia_pool": options.get("trivia_pool", []),
+    "trivia_urls": options.get("trivia_urls", []),
+    "news_urls": options.get("news_urls", []),
+    "last_musing_time": 0.0,
+    "last_joke_time": 0.0,
+    "last_trivia_time": 0.0,
+    "musing_count_date": "",
+    "joke_count_date": "",
+    "musing_count_today": 0,
+    "joke_count_today": 0,
+    "trivia_count_date": "",
+    "trivia_count_today": 0,
+    "trivia_interval_min": options.get("trivia_interval_min", 180),
+    "trivia_interval_max": options.get("trivia_interval_max", 360),
+    "trivia_daily_cap": options.get("trivia_daily_cap", 3),
+    "last_weather_time": 0.0,
+    "next_musing_time": 0.0,
+    "next_joke_time": 0.0,
+    "next_trivia_time": 0.0,
+    "last_entry_key": "",
+    "last_entry_time": 0.0,
+    "unread_count": 0,
+    "unread_log": [],
+    "last_emit": {},
+    "last_error": "",
+    "recent_seeds": {
+        "jokes": [],
+        "musings": [],
+        "trivia": [],
+    },
+    "recent_outputs": {
+        "jokes": [],
+        "musings": [],
+        "trivia": [],
+    },
+}
 
 
 async def load_state() -> None:
@@ -266,6 +279,48 @@ def choose_seed(category: str, pool: List[str]) -> Optional[str]:
     return random.choice(candidates or pool)
 
 
+async def load_trivia_pool() -> List[str]:
+    seeds: List[str] = []
+    try:
+        async with state_lock:
+            seeds.extend(state.get("trivia_pool", []) or [])
+            urls = [u.strip() for u in state.get("trivia_urls", []) or [] if u.strip()]
+    except Exception:
+        urls = []
+    # Fetch remote text files (one fact per line)
+    for url in urls:
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                res = await client.get(url)
+                res.raise_for_status()
+                txt = res.text
+                for ln in txt.splitlines():
+                    val = ln.strip()
+                    if val:
+                        seeds.append(val)
+        except Exception as err:
+            print(f"[charles] trivia url fetch failed ({url}): {err}")
+    # Local fallback files
+    for path_str in ["/config/charles_trivia.txt", "/usr/src/app/charles_trivia.txt"]:
+        p = Path(path_str)
+        if p.exists():
+            try:
+                for ln in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+                    val = ln.strip()
+                    if val:
+                        seeds.append(val)
+            except Exception as err:
+                print(f"[charles] trivia file read failed ({path_str}): {err}")
+    # Deduplicate while preserving order
+    seen = set()
+    uniq = []
+    for v in seeds:
+        if v not in seen:
+            seen.add(v)
+            uniq.append(v)
+    return uniq
+
+
 async def build_quick_context(category: str) -> Tuple[str, str, Optional[str]]:
     cat = category.lower()
     async with state_lock:
@@ -291,6 +346,12 @@ async def build_quick_context(category: str) -> Tuple[str, str, Optional[str]]:
         if seed:
             return (f"Seed: {seed}\nTell exactly one short joke based on this seed. Avoid repeating earlier jokes today. Return only one short joke.", "jokes", seed)
         return ("Tell exactly one short joke. Avoid repeating earlier jokes today. Return only one short joke.", "jokes", None)
+    if cat == "trivia":
+        pool = await load_trivia_pool()
+        seed = choose_seed("trivia", pool)
+        if seed:
+            return (f"Seed: {seed}\nShare exactly one short trivia fact based on this seed. Avoid repeating earlier trivia today. One sentence only.", "trivia", seed)
+        return ("Share exactly one short trivia fact. Avoid repeating earlier trivia today. One sentence only.", "trivia", None)
     if cat == "lighting":
         return ("Summarize current lighting status and any recent changes in one sentence.", "lighting", None)
     if cat == "arrivals":
@@ -333,10 +394,10 @@ def format_clock(ts: float) -> str:
 
 
 def push_recent(category: str, seed: Optional[str], message: str) -> None:
-    if category not in {"jokes", "musings"}:
+    if category not in {"jokes", "musings", "trivia"}:
         return
-    recent_seeds = state.setdefault("recent_seeds", {"jokes": [], "musings": []})
-    recent_outputs = state.setdefault("recent_outputs", {"jokes": [], "musings": []})
+    recent_seeds = state.setdefault("recent_seeds", {"jokes": [], "musings": [], "trivia": []})
+    recent_outputs = state.setdefault("recent_outputs", {"jokes": [], "musings": [], "trivia": []})
     if seed:
         arr = recent_seeds.setdefault(category, [])
         arr.insert(0, seed)
@@ -478,6 +539,7 @@ async def startup() -> None:
     await load_state()
     asyncio.create_task(scheduled_loop("musings"))
     asyncio.create_task(scheduled_loop("jokes"))
+    asyncio.create_task(scheduled_loop("trivia"))
     asyncio.create_task(weather_poll_loop())
     asyncio.create_task(calendar_poll_loop())
 
