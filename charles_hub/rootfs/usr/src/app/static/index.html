@@ -194,6 +194,25 @@
       padding: 6px 6px 4px;
       margin-top: 6px;
     }
+    .ghost-btn {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 6px;
+      margin-right: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      line-height: 1;
+    }
+    .cat-label { vertical-align: middle; }
+    .cat-offset { margin-left: 26px; display: inline-block; }
+    .detail-row .detail-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
   </style>
 </head>
 <body>
@@ -261,13 +280,13 @@
       <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell"></th><th class="checkbox-cell">Run</th></tr>
+          <tr><th style="padding-left:12px;">Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell">Run</th></tr>
         </thead>
         <tbody>
-          <tr><td>Weather</td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" id="btn-weather" onclick="toggleDetails('weather')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('weather')">▶</button></td></tr>
-          <tr id="row-weather" style="display:none;">
-            <td colspan="5">
-              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+          <tr><td><button class="ghost-btn" id="btn-weather" onclick="toggleDetails('weather')">▾</button><span class="cat-label">Weather</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('weather')">▶</button></td></tr>
+          <tr id="row-weather" class="detail-row" style="display:none;">
+            <td colspan="4">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="weather_gap">Min gap (sec)</label><input type="number" id="weather_gap" min="0" step="60"></div>
                 <div><label for="weather_delta">Temp delta (°)</label><input type="number" id="weather_delta" min="0" step="1"></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_condition"><label for="weather_condition">Only on condition change</label></div>
@@ -275,10 +294,10 @@
               </div>
             </td>
           </tr>
-          <tr><td>Calendar</td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" id="btn-calendar" onclick="toggleDetails('calendar')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('calendar')">▶</button></td></tr>
-          <tr id="row-calendar" style="display:none;">
-            <td colspan="5">
-              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
+          <tr><td><button class="ghost-btn" id="btn-calendar" onclick="toggleDetails('calendar')">▾</button><span class="cat-label">Calendar</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('calendar')">▶</button></td></tr>
+          <tr id="row-calendar" class="detail-row" style="display:none;">
+            <td colspan="4">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
                 <div><label for="calendar_lead">Lead time (min)</label><input type="number" id="calendar_lead" min="0" step="5"></div>
                 <div><label for="calendar_poll">Poll every (sec)</label><input type="number" id="calendar_poll" min="60" step="30"></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="calendar_morning_enabled"><label for="calendar_morning_enabled">Morning brief</label></div>
@@ -290,10 +309,10 @@
               <textarea id="calendar_entities" placeholder="calendar.family&#10;calendar.work"></textarea>
             </td>
           </tr>
-          <tr><td>Trivia</td><td class="checkbox-cell"><input type="checkbox" id="cat_trivia"></td><td class="checkbox-cell"><input type="checkbox" id="feed_trivia"></td><td class="checkbox-cell"><button class="secondary" id="btn-trivia" onclick="toggleDetails('trivia')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('trivia')">▶</button></td></tr>
-          <tr id="row-trivia" style="display:none;">
-            <td colspan="5">
-              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+          <tr><td><button class="ghost-btn" id="btn-trivia" onclick="toggleDetails('trivia')">▾</button><span class="cat-label">Trivia</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_trivia"></td><td class="checkbox-cell"><input type="checkbox" id="feed_trivia"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('trivia')">▶</button></td></tr>
+          <tr id="row-trivia" class="detail-row" style="display:none;">
+            <td colspan="4">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="trivia_min">Min (min)</label><input type="number" id="trivia_min" min="1" step="5"></div>
                 <div><label for="trivia_max">Max (min)</label><input type="number" id="trivia_max" min="1" step="5"></div>
                 <div><label for="trivia_cap">Daily cap</label><input type="number" id="trivia_cap" min="0" step="1"></div>
@@ -305,18 +324,17 @@
               <div class="note">Fallback: /config/charles_trivia.txt (or built-in) if no prompts/URLs.</div>
             </td>
           </tr>
-          <tr><td>System</td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td></tr>
-          <tr><td>Vacuum</td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td></tr>
-          <tr><td>Lighting</td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td></tr>
-          <tr><td>Arrivals</td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('arrivals')">▶</button></td></tr>
-          <tr><td>People</td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">Vacuum</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">Lighting</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">Arrivals</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('arrivals')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">People</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td></tr>
           <tr>
-            <td>Musings</td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td>
-            <td class="checkbox-cell"><button class="secondary" id="btn-musings" onclick="toggleDetails('musings')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('musings')">▶</button></td>
+            <td><button class="ghost-btn" id="btn-musings" onclick="toggleDetails('musings')">▾</button><span class="cat-label">Musings</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('musings')">▶</button></td>
           </tr>
-          <tr id="row-musings" style="display:none;">
-            <td colspan="5">
-              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+          <tr id="row-musings" class="detail-row" style="display:none;">
+            <td colspan="4">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="musing_min">Min (min)</label><input type="number" id="musing_min" min="1" step="5"></div>
                 <div><label for="musing_max">Max (min)</label><input type="number" id="musing_max" min="1" step="5"></div>
                 <div><label for="musing_cap">Daily cap</label><input type="number" id="musing_cap" min="0" step="1"></div>
@@ -326,12 +344,11 @@
             </td>
           </tr>
           <tr>
-            <td>Jokes</td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td>
-            <td class="checkbox-cell"><button class="secondary" id="btn-jokes" onclick="toggleDetails('jokes')">▼</button></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('jokes')">▶</button></td>
+            <td><button class="ghost-btn" id="btn-jokes" onclick="toggleDetails('jokes')">▾</button><span class="cat-label">Jokes</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('jokes')">▶</button></td>
           </tr>
-          <tr id="row-jokes" style="display:none;">
-            <td colspan="5">
-              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+          <tr id="row-jokes" class="detail-row" style="display:none;">
+            <td colspan="4">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
                 <div><label for="joke_min">Min (min)</label><input type="number" id="joke_min" min="1" step="5"></div>
                 <div><label for="joke_max">Max (min)</label><input type="number" id="joke_max" min="1" step="5"></div>
                 <div><label for="joke_cap">Daily cap</label><input type="number" id="joke_cap" min="0" step="1"></div>
