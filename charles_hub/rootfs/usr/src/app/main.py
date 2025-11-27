@@ -8,6 +8,8 @@ import time
 import random
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, Optional, Tuple, List
+import difflib
+import re
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -272,10 +274,17 @@ def parse_iso_ts(raw: Any) -> Optional[float]:
 
 
 def choose_seed(category: str, pool: List[str]) -> Optional[str]:
+    return choose_seed_ex(category, pool, None)
+
+
+def choose_seed_ex(category: str, pool: List[str], excluded: Optional[List[str]]) -> Optional[str]:
     if not pool:
         return None
     recent = state.get("recent_seeds", {}).get(category, [])
-    candidates = [p for p in pool if p not in recent]
+    excluded_set = set(excluded or [])
+    candidates = [p for p in pool if p not in recent and p not in excluded_set]
+    if not candidates:
+        candidates = [p for p in pool if p not in excluded_set]
     return random.choice(candidates or pool)
 
 
@@ -321,7 +330,7 @@ async def load_trivia_pool() -> List[str]:
     return uniq
 
 
-async def build_quick_context(category: str) -> Tuple[str, str, Optional[str]]:
+async def build_quick_context(category: str, excluded_seeds: Optional[List[str]] = None) -> Tuple[str, str, Optional[str]]:
     cat = category.lower()
     async with state_lock:
         st = dict(state)
@@ -336,19 +345,19 @@ async def build_quick_context(category: str) -> Tuple[str, str, Optional[str]]:
         return ("Share today's and tomorrow's upcoming calendar items briefly.", "calendar", None)
     if cat == "musings":
         pool: List[str] = st.get("musing_pool") or []
-        seed = choose_seed("musings", pool)
+        seed = choose_seed_ex("musings", pool, excluded_seeds)
         if seed:
             return (f"Seed: {seed}\nRespond with one short, wry musing inspired by this seed. Keep it to one or two sentences. Avoid repeating earlier musings today.", "musings", seed)
         return ("Share one short, wry house musing in one or two sentences. Avoid repeating earlier musings today.", "musings", None)
     if cat == "jokes":
         pool: List[str] = st.get("joke_pool") or []
-        seed = choose_seed("jokes", pool)
+        seed = choose_seed_ex("jokes", pool, excluded_seeds)
         if seed:
             return (f"Seed: {seed}\nTell exactly one short joke based on this seed. Avoid repeating earlier jokes today. Return only one short joke.", "jokes", seed)
         return ("Tell exactly one short joke. Avoid repeating earlier jokes today. Return only one short joke.", "jokes", None)
     if cat == "trivia":
         pool = await load_trivia_pool()
-        seed = choose_seed("trivia", pool)
+        seed = choose_seed_ex("trivia", pool, excluded_seeds)
         if seed:
             return (f"Seed: {seed}\nShare exactly one short trivia fact based on this seed. Avoid repeating earlier trivia today. One sentence only.", "trivia", seed)
         return ("Share exactly one short trivia fact. Avoid repeating earlier trivia today. One sentence only.", "trivia", None)
@@ -561,6 +570,7 @@ async def health() -> Dict[str, Any]:
             "last_error": state.get("last_error", ""),
             "next_musing_time": state.get("next_musing_time", 0),
             "next_joke_time": state.get("next_joke_time", 0),
+            "next_trivia_time": state.get("next_trivia_time", 0),
             "last_calendar_poll": state.get("last_calendar_poll", 0),
         }
 
@@ -601,6 +611,7 @@ async def process_emit(
     weather_payload: Optional[Dict[str, Any]] = None,
     use_raw_context: bool = False,
     seed_tag: Optional[str] = None,
+    message_override: Optional[str] = None,
 ) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
@@ -637,7 +648,9 @@ async def process_emit(
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
 
-    if use_raw_context:
+    if message_override is not None:
+        message_text = message_override
+    elif use_raw_context:
         message_text = context
     else:
         message_text = await call_conversation(
@@ -715,6 +728,69 @@ async def process_emit(
     }
 
 
+def normalize_text(txt: str) -> str:
+    txt = txt.lower()
+    txt = re.sub(r"[^a-z0-9\s]", " ", txt)
+    return " ".join(txt.split())
+
+
+async def is_similar_output(category: str, candidate: str) -> bool:
+    cat = category.lower()
+    norm = normalize_text(candidate)
+    async with state_lock:
+        recents = list(state.get("recent_outputs", {}).get(cat, []))
+    for recent in recents:
+        rnorm = normalize_text(recent)
+        if not rnorm:
+            continue
+        ratio = difflib.SequenceMatcher(None, norm, rnorm).ratio()
+        if ratio >= 0.72:
+            return True
+        tokens = set(norm.split())
+        rtokens = set(rnorm.split())
+        if tokens and rtokens:
+            overlap = len(tokens & rtokens) / max(len(tokens), len(rtokens))
+            if overlap >= 0.6:
+                return True
+    return False
+
+
+async def emit_with_retry(category: str, conversation_id: str, topic: Optional[str] = None, max_attempts: int = 3) -> Dict[str, Any]:
+    attempts = 0
+    tried_seeds: List[str] = []
+    last_result = None
+    while attempts < max_attempts:
+        context, tp, seed = await build_quick_context(category, excluded_seeds=tried_seeds)
+        attempts += 1
+        if seed:
+            tried_seeds.append(seed)
+        # Generate message via persona first
+        agent_prompt = state.get("persona_prompt", DEFAULT_PROMPT)
+        agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
+        message = await call_conversation(
+            prompt=agent_prompt,
+            topic=tp,
+            context=context,
+            conversation_id=conversation_id,
+            agent_id=agent_id,
+        )
+        if category.lower() in {"jokes", "musings", "trivia"}:
+            if await is_similar_output(category, message):
+                continue
+        result = await process_emit(
+            topic=topic or tp,
+            category=category,
+            context=context,
+            route_raw="default",
+            conversation_id=conversation_id,
+            seed_tag=seed,
+            message_override=message,
+        )
+        return result
+    # Fallback: return last attempted result if any; otherwise throttled
+    return last_result or {"status": "throttled", "route": "default"}
+
+
 @app.post("/api/emit")
 async def emit(payload: Dict[str, Any]) -> JSONResponse:
     result = await process_emit(
@@ -740,16 +816,19 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
 @app.post("/api/trigger")
 async def trigger(payload: Dict[str, Any]) -> JSONResponse:
     category = payload.get("category", "system")
-    context, topic, seed = await build_quick_context(category)
-    result = await process_emit(
-        topic=topic,
-        category=category,
-        context=context,
-        route_raw="default",
-        conversation_id=f"charles_trigger_{category}",
-        use_raw_context=False,
-        seed_tag=seed,
-    )
+    if category.lower() in {"jokes", "musings", "trivia"}:
+        result = await emit_with_retry(category, conversation_id=f"charles_trigger_{category}")
+    else:
+        context, topic, seed = await build_quick_context(category)
+        result = await process_emit(
+            topic=topic,
+            category=category,
+            context=context,
+            route_raw="default",
+            conversation_id=f"charles_trigger_{category}",
+            use_raw_context=False,
+            seed_tag=seed,
+        )
     if result.get("status") == "throttled":
         return JSONResponse(result, status_code=202)
     return JSONResponse(result)
@@ -821,14 +900,17 @@ async def scheduled_loop(kind: str) -> None:
                     )
                 else:
                     context = f"Share one short {kind[:-1]} update in one sentence."
-            result = await process_emit(
-                topic=kind,
-                category=kind,
-                context=context,
-                route_raw="default",
-                conversation_id=f"charles_{kind}",
-                seed_tag=seed,
-            )
+            if kind in {"jokes", "musings", "trivia"}:
+                result = await emit_with_retry(kind, conversation_id=f"charles_{kind}")
+            else:
+                result = await process_emit(
+                    topic=kind,
+                    category=kind,
+                    context=context,
+                    route_raw="default",
+                    conversation_id=f"charles_{kind}",
+                    seed_tag=seed,
+                )
             if result.get("status") != "throttled":
                 async with state_lock:
                     state[count_key] = state.get(count_key, 0) + 1

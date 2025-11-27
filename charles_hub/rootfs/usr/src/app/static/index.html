@@ -651,7 +651,8 @@
         }
         const nextM = data.next_musing_time ? new Date(data.next_musing_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         const nextJ = data.next_joke_time ? new Date(data.next_joke_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
-        document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ}`;
+        const nextT = data.next_trivia_time ? new Date(data.next_trivia_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ} | Next trivia: ${nextT}`;
         const cal = data.last_calendar_poll ? new Date(data.last_calendar_poll * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         document.getElementById('health-calendar').textContent = `Last calendar poll: ${cal}`;
         document.getElementById('health-error').textContent = data.last_error ? `Last error: ${data.last_error}` : '';
