@@ -117,6 +117,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "trivia_cache": [],
     "trivia_cache_ts": 0.0,
     "news_urls": options.get("news_urls", []),
+    "pauses": {},
     "last_musing_time": 0.0,
     "last_joke_time": 0.0,
     "last_trivia_time": 0.0,
@@ -238,6 +239,15 @@ def feed_category_allowed(category: str) -> bool:
 
 def is_muted(category: str) -> bool:
     return False
+
+
+def is_paused(category: str) -> bool:
+    try:
+        pauses = state.get("pauses", {})
+        until = float(pauses.get(category.lower(), 0))
+        return until > time.time()
+    except Exception:
+        return False
 
 
 def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
@@ -728,6 +738,9 @@ async def process_emit(
     if not force and current_key == last_key and (now_ts - last_ts) < throttle_seconds:
         return {"status": "throttled", "route": resolved_route}
 
+    if not force and is_paused(category):
+        return {"status": "paused", "route": resolved_route}
+
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
 
@@ -957,6 +970,49 @@ async def reload_trivia() -> Dict[str, Any]:
 @app.post("/api/mute")
 async def mute(payload: Dict[str, Any]) -> Dict[str, Any]:
     raise HTTPException(status_code=410, detail="mute support removed")
+
+
+@app.post("/api/pause")
+async def pause(payload: Dict[str, Any]) -> Dict[str, Any]:
+    category = payload.get("category")
+    minutes = float(payload.get("minutes", 0))
+    if not category:
+        raise HTTPException(status_code=400, detail="category required")
+    until = time.time() + (minutes * 60) if minutes > 0 else 0
+    async with state_lock:
+        pauses = state.setdefault("pauses", {})
+        if until > 0:
+            pauses[category.lower()] = until
+        else:
+            pauses.pop(category.lower(), None)
+        await persist_state()
+    return {"status": "ok", "category": category, "paused_until": until}
+
+
+@app.get("/api/entities/{domain}")
+async def list_entities(domain: str) -> Dict[str, Any]:
+    domain = domain.lower()
+    if domain not in {"weather", "calendar"}:
+        raise HTTPException(status_code=400, detail="domain must be weather or calendar")
+    token = os.getenv("SUPERVISOR_TOKEN")
+    if not token:
+        raise HTTPException(status_code=500, detail="Missing supervisor token")
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            res = await client.get(
+                "http://supervisor/core/api/states",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            res.raise_for_status()
+            data = res.json()
+            items = [
+                {"entity_id": item.get("entity_id"), "name": item.get("attributes", {}).get("friendly_name", "")}
+                for item in data
+                if str(item.get("entity_id", "")).startswith(f"{domain}.")
+            ]
+            return {"status": "ok", "entities": items}
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Failed to list entities: {err}")
 
 
 async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
