@@ -124,18 +124,21 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "joke_count_today": 0,
     "trivia_count_date": "",
     "trivia_count_today": 0,
-    "trivia_interval_min": options.get("trivia_interval_min", 180),
+        "trivia_interval_min": options.get("trivia_interval_min", 180),
         "trivia_interval_max": options.get("trivia_interval_max", 360),
         "trivia_daily_cap": options.get("trivia_daily_cap", 3),
+        "arrival_emit_delay": options.get("arrival_emit_delay", 0),
+        "arrival_combine_window": options.get("arrival_combine_window", 300),
         "last_weather_time": 0.0,
         "next_musing_time": 0.0,
         "next_joke_time": 0.0,
         "next_trivia_time": 0.0,
         "arrival_groups": {},
+        "arrival_pending": {},
         "last_entry_key": "",
         "last_entry_time": 0.0,
         "unread_count": 0,
-    "unread_log": [],
+        "unread_log": [],
     "last_emit": {},
     "last_error": "",
     "recent_seeds": {
@@ -572,6 +575,7 @@ async def startup() -> None:
     asyncio.create_task(scheduled_loop("trivia"))
     asyncio.create_task(weather_poll_loop())
     asyncio.create_task(calendar_poll_loop())
+    asyncio.create_task(arrival_pending_loop())
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -851,6 +855,11 @@ async def emit_with_retry(category: str, conversation_id: str, topic: Optional[s
 
 @app.post("/api/emit")
 async def emit(payload: Dict[str, Any]) -> JSONResponse:
+    # Arrivals can be queued for debounce
+    if payload.get("category", "").lower() == "arrivals":
+        result = await handle_arrival_emit(payload)
+        code = 202 if result.get("status") == "pending" else 200
+        return JSONResponse(result, status_code=code)
     result = await process_emit(
         topic=payload.get("topic", "general"),
         category=payload.get("category", "system"),
@@ -900,6 +909,90 @@ async def mark_read() -> Dict[str, Any]:
         await persist_state()
     return {"status": "ok"}
 
+
+async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
+    name = payload.get("name") or payload.get("arrival_name") or payload.get("person")
+    location = payload.get("location") or payload.get("arrival_location") or payload.get("topic", "home")
+    group_key = payload.get("group_key") or location
+    context = payload.get("context") or f"{name or 'Someone'} arrived at {location}."
+    delay = int(state.get("arrival_emit_delay", 0))
+    combine_window = int(state.get("arrival_combine_window", 300))
+    now_ts = time.time()
+    if delay <= 0:
+        return await process_emit(
+            topic=payload.get("topic", location),
+            category="arrivals",
+            context=context,
+            route_raw=payload.get("route", "default"),
+            conversation_id=payload.get("conversation_id", "charles_arrivals"),
+            arrival_name=name,
+            arrival_location=location,
+            group_key=group_key,
+            combine_window=combine_window,
+        )
+    async with state_lock:
+        pending = state.setdefault("arrival_pending", {})
+        entry = pending.get(group_key, {"names": []})
+        names = entry.get("names", [])
+        if name and name not in names:
+            names.append(name)
+        entry.update({
+            "ts": now_ts,
+            "names": names,
+            "location": location,
+            "context": context,
+            "route": payload.get("route", "default"),
+            "conversation_id": payload.get("conversation_id", "charles_arrivals"),
+            "combine_window": combine_window,
+        })
+        pending[group_key] = entry
+        await persist_state()
+    return {"status": "pending", "route": "default"}
+
+
+async def arrival_pending_loop() -> None:
+    while True:
+        try:
+            delay = int(state.get("arrival_emit_delay", 0))
+            if delay <= 0:
+                await asyncio.sleep(20)
+                continue
+            now_ts = time.time()
+            emit_list = []
+            async with state_lock:
+                pending = state.get("arrival_pending", {})
+                to_remove = []
+                for key, entry in pending.items():
+                    ts = entry.get("ts", 0)
+                    if (now_ts - ts) >= delay:
+                        emit_list.append((key, entry))
+                        to_remove.append(key)
+                for k in to_remove:
+                    pending.pop(k, None)
+                if to_remove:
+                    state["arrival_pending"] = pending
+                    await persist_state()
+            for key, entry in emit_list:
+                names = entry.get("names", [])
+                location = entry.get("location", "home")
+                ctx = entry.get("context") or f"{', '.join(names) if names else 'Someone'} arrived at {location}."
+                if len(names) > 1:
+                    ctx = f"{', '.join(names)} arrived at {location} within the last few minutes."
+                await process_emit(
+                    topic=location,
+                    category="arrivals",
+                    context=ctx,
+                    route_raw=entry.get("route", "default"),
+                    conversation_id=entry.get("conversation_id", "charles_arrivals"),
+                    group_key=key,
+                    combine_window=entry.get("combine_window", 300),
+                    arrival_name=names[-1] if names else None,
+                    arrival_location=location,
+                )
+            await asyncio.sleep(20)
+        except Exception as err:
+            print(f"[charles] arrival pending loop error: {err}")
+            await asyncio.sleep(30)
 
 def in_quiet_hours(now_ts: float) -> bool:
     start = state.get("quiet_hours_start", "22:00")
