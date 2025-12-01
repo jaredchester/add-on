@@ -606,6 +606,12 @@ async def health() -> Dict[str, Any]:
             "next_joke_time": state.get("next_joke_time", 0),
             "next_trivia_time": state.get("next_trivia_time", 0),
             "last_calendar_poll": state.get("last_calendar_poll", 0),
+            "last_weather_time": state.get("last_weather_time", 0),
+            "last_weather_payload": state.get("last_weather_payload", {}),
+            "weather_min_gap": state.get("weather_min_gap", 0),
+            "weather_temp_delta": state.get("weather_temp_delta", 5),
+            "weather_condition_change": state.get("weather_condition_change", True),
+            "weather_feed_only_minor": state.get("weather_feed_only_minor", False),
         }
 
 

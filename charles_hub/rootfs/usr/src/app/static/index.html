@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CHARLES Hub</title>
-  <script src="https://unpkg.com/muuri@0.9.5/dist/muuri.min.js"></script>
   <style>
     :root {
       --bg: #030c0a;
@@ -34,38 +33,16 @@
       text-shadow: 0 0 12px rgba(50, 255, 140, 0.45);
     }
     .grid {
-      position: relative;
-      max-width: 1500px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: var(--gap);
-      min-height: 60vh;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: var(--gap);
+      align-items: start;
     }
-    .item {
-      box-sizing: border-box;
-      position: absolute;
-      width: calc(33.333% - var(--gap));
-      padding: calc(var(--gap) / 2);
-      margin: 0;
-    }
-    .item-content {
-      position: relative;
-      width: 100%;
-    }
-    @media (max-width: 1300px) { .item { width: calc(50% - var(--gap)); } }
-    @media (max-width: 900px) { .item { width: calc(100% - var(--gap)); } }
-    @media (max-width: 600px) { .item { width: calc(100% - var(--gap)); position: relative; } }
-    .item.muuri-item-dragging { z-index: 20; }
-    .item.muuri-item-releasing { z-index: 10; }
-    .item.muuri-item-hidden { z-index: 0; }
-    .item.muuri-item-placeholder { z-index: 5; }
-    .item.muuri-item-placeholder .item-content {
-      width: 100%;
-    }
-    .item.muuri-item-placeholder .card {
-      opacity: 0.25;
-      border: 1px dashed var(--accent);
-      box-shadow: none;
-    }
+    .item { width: 100%; }
+    .item-content { width: 100%; }
     .card {
       background: var(--panel);
       border: 1px solid var(--border);
@@ -431,6 +408,8 @@
           <div class="note" id="health-last"></div>
           <div class="note" id="health-next"></div>
           <div class="note" id="health-calendar"></div>
+          <div class="note" id="health-weather"></div>
+          <div class="note" id="health-weather-detail"></div>
           <div class="note" id="health-error"></div>
           <button class="secondary" onclick="loadHealth()">Refresh health</button>
         </div>
@@ -446,13 +425,7 @@
       const url = path.startsWith('/') ? '.' + path : path;
       return fetch(url, opts);
     };
-    const orderKey = 'charles_cards_order';
-    let gridMuuri = null;
-    const reflowGrid = () => {
-      if (!gridMuuri) return;
-      gridMuuri.refreshItems();
-      gridMuuri.layout(true);
-    };
+    const reflowGrid = () => {};
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
       el.textContent = txt;
@@ -685,6 +658,13 @@
         document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ} | Next trivia: ${nextT}`;
         const cal = data.last_calendar_poll ? new Date(data.last_calendar_poll * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         document.getElementById('health-calendar').textContent = `Last calendar poll: ${cal}`;
+        const wTs = data.last_weather_time ? new Date(data.last_weather_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        const wGap = data.weather_min_gap ?? 'n/a';
+        const wDelta = data.weather_temp_delta ?? 'n/a';
+        const wCond = data.weather_condition_change ? 'yes' : 'no';
+        document.getElementById('health-weather').textContent = `Last weather emit: ${wTs} | Min gap: ${wGap}s | ΔT: ${wDelta} | Cond change: ${wCond}`;
+        const wp = data.last_weather_payload || {};
+        document.getElementById('health-weather-detail').textContent = wp.condition ? `Last weather payload: ${wp.condition} @ ${wp.temperature}` : '';
         document.getElementById('health-error').textContent = data.last_error ? `Last error: ${data.last_error}` : '';
       } catch (err) {
         console.error(err);
@@ -756,51 +736,11 @@
     }
 
     function saveOrder() {
-      if (!gridMuuri) return;
-      const order = gridMuuri.getItems().map(item => item.getElement().dataset.id);
-      localStorage.setItem(orderKey, JSON.stringify(order));
+      return;
     }
 
     function initMuuri() {
-      gridMuuri = new Muuri('#card-grid', {
-        items: '.item',
-        layout: { fillGaps: true, rounding: false },
-        dragEnabled: true,
-        dragHandle: '.card-header',
-        layoutOnResize: true,
-        layoutOnItemsResize: true,
-        layoutOnInit: false,
-        dragPlaceholder: {
-          enabled: true,
-          duration: 200,
-          createElement: (item) => {
-            const el = item.getElement().cloneNode(true);
-            el.classList.add('muuri-item-placeholder');
-            el.style.height = `${item.getHeight()}px`;
-            el.style.width = `${item.getWidth()}px`;
-            return el;
-          },
-        },
-        dragSortPredicate: { threshold: 50, action: 'swap' },
-        dragSort: () => [gridMuuri],
-      });
-      gridMuuri.refreshItems();
-      const raw = localStorage.getItem(orderKey);
-      if (raw) {
-        try {
-          const order = JSON.parse(raw);
-          if (Array.isArray(order)) {
-            const current = gridMuuri.getItems();
-            const map = Object.fromEntries(current.map(i => [i.getElement().dataset.id, i]));
-            const newOrder = order.map(id => map[id]).filter(Boolean);
-            if (newOrder.length) gridMuuri.sort(newOrder, { layout: 'instant' });
-          }
-        } catch (e) {
-          console.error('Failed to load card order', e);
-        }
-      }
-      gridMuuri.refreshItems();
-      gridMuuri.on('moveEnd', () => { saveOrder(); });
+      return;
     }
 
     let autoFeed = false;
@@ -819,7 +759,7 @@
     }
 
     initMuuri();
-    window.addEventListener('resize', () => requestAnimationFrame(() => { reflowGrid(); }));
+    window.addEventListener('resize', () => {});
     loadState().then(() => { loadFeed(); loadHealth(); });
   </script>
 </body>
