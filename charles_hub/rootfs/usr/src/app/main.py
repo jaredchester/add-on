@@ -1117,16 +1117,11 @@ async def weather_poll_loop() -> None:
                     temp_delta_req = float(state.get("weather_temp_delta", 5))
                     cond_change_required = bool(state.get("weather_condition_change", True))
                     feed_only_minor = bool(state.get("weather_feed_only_minor", False))
-                significant, reason = weather_significant(last_p, payload, temp_delta_req, cond_change_required)
                 delta_ts = now_ts - last_ts
                 if min_gap > 0 and delta_ts < min_gap:
-                    # If unchanged or minor within gap, skip
-                    if not significant or (
-                        str(payload.get("condition")).lower() == str(last_p.get("condition")).lower()
-                        and payload.get("temperature") == last_p.get("temperature")
-                    ):
-                        await asyncio.sleep(interval)
-                        continue
+                    await asyncio.sleep(interval)
+                    continue
+                significant, reason = weather_significant(last_p, payload, temp_delta_req, cond_change_required)
                 if not significant and not feed_only_minor:
                     await asyncio.sleep(interval)
                     continue
