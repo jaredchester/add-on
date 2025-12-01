@@ -114,6 +114,8 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "joke_pool": options.get("joke_pool", []),
     "trivia_pool": options.get("trivia_pool", []),
     "trivia_urls": options.get("trivia_urls", []),
+    "trivia_cache": [],
+    "trivia_cache_ts": 0.0,
     "news_urls": options.get("news_urls", []),
     "last_musing_time": 0.0,
     "last_joke_time": 0.0,
@@ -321,14 +323,15 @@ def choose_seed_ex(category: str, pool: List[str], excluded: Optional[List[str]]
     return random.choice(candidates or pool)
 
 
-async def load_trivia_pool() -> List[str]:
-    seeds: List[str] = []
-    try:
-        async with state_lock:
-            seeds.extend(state.get("trivia_pool", []) or [])
-            urls = [u.strip() for u in state.get("trivia_urls", []) or [] if u.strip()]
-    except Exception:
-        urls = []
+async def load_trivia_pool(force: bool = False) -> List[str]:
+    async with state_lock:
+        cache = state.get("trivia_cache", [])
+        cache_ts = float(state.get("trivia_cache_ts", 0.0))
+        urls = [u.strip() for u in state.get("trivia_urls", []) or [] if u.strip()]
+        base_pool = state.get("trivia_pool", []) or []
+    if cache and not force:
+        return cache
+    seeds: List[str] = list(base_pool)
     # Fetch remote text files (one fact per line)
     for url in urls:
         try:
@@ -360,6 +363,10 @@ async def load_trivia_pool() -> List[str]:
         if v not in seen:
             seen.add(v)
             uniq.append(v)
+    async with state_lock:
+        state["trivia_cache"] = uniq
+        state["trivia_cache_ts"] = time.time()
+        await persist_state()
     return uniq
 
 
@@ -931,6 +938,12 @@ async def mark_read() -> Dict[str, Any]:
         state["unread_log"] = []
         await persist_state()
     return {"status": "ok"}
+
+
+@app.post("/api/trivia/reload")
+async def reload_trivia() -> Dict[str, Any]:
+    pool = await load_trivia_pool(force=True)
+    return {"status": "ok", "count": len(pool), "loaded_at": time.time()}
 
 
 async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:

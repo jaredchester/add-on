@@ -300,7 +300,8 @@
               <textarea id="trivia_pool" placeholder="One fact or seed per line"></textarea>
               <label for="trivia_urls" style="margin-top:8px;">Trivia text URLs (one per line)</label>
               <textarea id="trivia_urls" placeholder="https://example.com/trivia.txt"></textarea>
-              <div class="note">Fallback: /config/charles_trivia.txt (or built-in) if no prompts/URLs.</div>
+              <div class="note" id="trivia-meta">Fallback: /config/charles_trivia.txt (or built-in) if no prompts/URLs.</div>
+              <button class="secondary" onclick="reloadTrivia()">Reload trivia</button>
             </td>
           </tr>
           <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td></tr>
@@ -729,6 +730,21 @@
       } catch (err) {
         console.error(err);
         setStatus('Quick trigger failed.', false);
+      }
+    }
+
+    async function reloadTrivia() {
+      try {
+        setStatus('Reloading trivia…');
+        const res = await api('api/trivia/reload', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Trivia reload failed');
+        const loadedAt = data.loaded_at ? new Date(data.loaded_at * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        document.getElementById('trivia-meta').textContent = `Loaded ${data.count || 0} trivia items at ${loadedAt}. Fallback: /config/charles_trivia.txt (or built-in)`;
+        setStatus('Trivia reloaded.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to reload trivia.', false);
       }
     }
 
