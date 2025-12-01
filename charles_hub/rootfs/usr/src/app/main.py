@@ -658,30 +658,36 @@ async def process_emit(
         last_ts = float(state.get("last_entry_time", 0.0))
         resolved_route = default_route if route_raw == "default" else route_raw
         now_ts = time.time()
+
+        # Capture weather state upfront
+        weather_last_time = float(state.get("last_weather_time", 0.0))
+        weather_last_payload = state.get("last_weather_payload", {}) or {}
+        weather_min_gap = int(state.get("weather_min_gap", 0))
+        weather_temp_delta = float(state.get("weather_temp_delta", 5))
+        weather_cond_change = bool(state.get("weather_condition_change", True))
+        weather_feed_only_minor = bool(state.get("weather_feed_only_minor", False))
+
     minor_weather = False
     combined_feed_prev = None
     combined_names: List[str] = []
     combine_mode = False
     if category.lower() == "weather":
-        min_gap = int(state.get("weather_min_gap", 0))
-        last_weather = float(state.get("last_weather_time", 0.0))
-        if min_gap > 0 and (now_ts - last_weather) < min_gap:
+        if weather_min_gap > 0 and (now_ts - weather_last_time) < weather_min_gap:
             return {"status": "throttled", "route": resolved_route}
-            prev_payload = state.get("last_weather_payload", {}) or {}
-            current_payload = weather_payload or {}
-            if current_payload:
-                significant, reason = weather_significant(
-                    prev_payload,
-                    current_payload,
-                    float(state.get("weather_temp_delta", 5)),
-                    bool(state.get("weather_condition_change", True)),
-                )
-                if not significant:
-                    if state.get("weather_feed_only_minor", False):
-                        minor_weather = True
-                        resolved_route = "feed"
-                    else:
-                        return {"status": "throttled", "route": resolved_route}
+        current_payload = weather_payload or {}
+        if current_payload:
+            significant, reason = weather_significant(
+                weather_last_payload,
+                current_payload,
+                weather_temp_delta,
+                weather_cond_change,
+            )
+            if not significant:
+                if weather_feed_only_minor:
+                    minor_weather = True
+                    resolved_route = "feed"
+                else:
+                    return {"status": "throttled", "route": resolved_route}
     if category.lower() == "arrivals" and group_key:
         awin = combine_window if combine_window is not None else 300
         arrivals = state.get("arrival_groups", {})
@@ -700,9 +706,9 @@ async def process_emit(
                 combined_names = [arrival_name]
             loc = arrival_location or topic
             context = context or f"{arrival_name or 'Someone'} arrived at {loc}."
-        current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
-        if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
-            return {"status": "throttled", "route": resolved_route}
+    current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
+    if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
+        return {"status": "throttled", "route": resolved_route}
 
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
