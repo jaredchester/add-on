@@ -266,6 +266,15 @@ def replace_last_feed_line(expected: str, new_line: str) -> str:
         return append_feed_line(time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time())), "arrivals", new_line)
 
 
+def build_notify_summary(current: str, existing_unread: List[str]) -> str:
+    entries = [current] + (existing_unread or [])
+    entries = [e for e in entries if e][:5]
+    if len(entries) == 1:
+        return entries[0]
+    parts = [f"{idx+1}) {txt}" for idx, txt in enumerate(entries)]
+    return f"{len(entries)} updates: " + " | ".join(parts)
+
+
 def parse_time_str(val: str) -> Optional[int]:
     try:
         hh, mm = [int(x) for x in val.split(":")]
@@ -736,13 +745,15 @@ async def process_emit(
             feed_line = append_feed_line(ts_iso, topic, message_text)
 
     if send_notify:
+        existing_unread = state.get("unread_log", [])
+        notify_message = build_notify_summary(message_text, existing_unread)
         notify_service = notify_service_override or state.get("notify_service", "notify.mobile_app_pixel_9")
         notify_tag = notify_tag_override or state.get("notify_tag", "charles_stream")
         notify_title = notify_title_override or state.get("notify_title", "CHARLES says")
         await call_notify(
             service=notify_service,
             title=notify_title,
-            message=message_text,
+            message=notify_message,
             tag=notify_tag,
         )
 
