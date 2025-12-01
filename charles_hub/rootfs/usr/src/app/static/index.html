@@ -276,6 +276,7 @@
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_feed_only_minor"><label for="weather_feed_only_minor">Minor changes: feed only</label></div>
                 <div><label for="weather_entity">Weather entity</label><input type="text" id="weather_entity" placeholder="weather.home"></div>
                 <div><label for="weather_poll">Poll every (sec)</label><input type="number" id="weather_poll" min="60" step="30"></div>
+                <div><label>Available weather entities</label><select id="weather_entity_select"></select><button class="secondary" onclick="loadEntities('weather')">Refresh</button></div>
               </div>
             </td>
           </tr>
@@ -292,6 +293,11 @@
               </div>
               <label for="calendar_entities" style="margin-top:8px;">Calendars (entity ids, one per line)</label>
               <textarea id="calendar_entities" placeholder="calendar.family&#10;calendar.work"></textarea>
+              <div style="margin-top:6px;">
+                <label>Available calendar entities</label>
+                <select id="calendar_entity_select" multiple style="min-height:80px;"></select>
+                <button class="secondary" onclick="loadEntities('calendar')">Refresh</button>
+              </div>
             </td>
           </tr>
           <tr><td><button class="ghost-btn" id="btn-trivia" onclick="toggleDetails('trivia')">▾</button><span class="cat-label">Trivia</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_trivia"></td><td class="checkbox-cell"><input type="checkbox" id="feed_trivia"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('trivia')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-trivia" onclick="pauseCategory('trivia',60)">Pause</button></td></tr>
@@ -464,6 +470,7 @@
       document.getElementById('calendar_evening_enabled').checked = st.calendar_evening_enabled ?? false;
       document.getElementById('calendar_evening_time').value = st.calendar_evening_time || '21:00';
       document.getElementById('weather_entity').value = st.weather_entity || 'weather.home';
+      document.getElementById('weather_entity_select').value = st.weather_entity || 'weather.home';
       document.getElementById('weather_poll').value = st.weather_poll_interval ?? 300;
       const cats = st.categories || {};
       document.getElementById('cat_weather').checked = cats.weather ?? true;
@@ -502,6 +509,13 @@
       document.getElementById('trivia_pool').value = (st.trivia_pool || []).join('\\n');
       document.getElementById('trivia_urls').value = (st.trivia_urls || []).join('\\n');
       document.getElementById('calendar_entities').value = (st.calendar_entities || []).join('\\n');
+      const calSel = document.getElementById('calendar_entity_select');
+      if (calSel) {
+        const selected = (st.calendar_entities || []);
+        Array.from(calSel.options).forEach((opt) => {
+          opt.selected = selected.includes(opt.value);
+        });
+      }
       document.getElementById('arrival_delay').value = st.arrival_emit_delay ?? 0;
       document.getElementById('arrival_combine').value = st.arrival_combine_window ?? 300;
       document.getElementById('unread-meta').textContent = `Unread: ${st.unread_count ?? 0}`;
@@ -807,6 +821,27 @@
       btn.classList.toggle('muted-btn', paused);
       btn.textContent = paused ? 'Paused' : 'Pause';
       btn.title = paused ? `Paused until ${new Date(until * 1000).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}` : 'Pause for 60m';
+    }
+
+    async function loadEntities(domain) {
+      try {
+        const res = await api(`api/entities/${domain}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Fetch failed');
+        const sel = domain === 'weather' ? document.getElementById('weather_entity_select') : document.getElementById('calendar_entity_select');
+        if (!sel) return;
+        sel.innerHTML = '';
+        (data.entities || []).forEach((item) => {
+          const opt = document.createElement('option');
+          opt.value = item.entity_id;
+          opt.textContent = item.name ? `${item.name} (${item.entity_id})` : item.entity_id;
+          sel.appendChild(opt);
+        });
+        setStatus(`Loaded ${data.entities?.length || 0} ${domain} entities.`);
+      } catch (err) {
+        console.error(err);
+        setStatus(`Failed to load ${domain} entities.`, false);
+      }
     }
 
     function toggleDetails(kind) {

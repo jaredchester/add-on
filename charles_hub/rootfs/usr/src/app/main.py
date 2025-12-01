@@ -999,10 +999,7 @@ async def list_entities(domain: str) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Missing supervisor token")
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            res = await client.get(
-                "http://supervisor/core/api/states",
-                headers={"Authorization": f"Bearer {token}"},
-            )
+            res = await client.get("http://supervisor/core/api/states", headers={"Authorization": f"Bearer {token}"})
             res.raise_for_status()
             data = res.json()
             items = [
