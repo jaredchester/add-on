@@ -756,10 +756,14 @@
 
     async function pauseCategory(cat, minutes) {
       try {
+        const now = Date.now() / 1000;
+        const pauses = currentState.pauses || {};
+        const alreadyPaused = pauses[cat] && pauses[cat] > now;
+        const targetMinutes = alreadyPaused ? 0 : minutes;
         const res = await api('api/pause', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category: cat, minutes })
+          body: JSON.stringify({ category: cat, minutes: targetMinutes })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Pause failed');
