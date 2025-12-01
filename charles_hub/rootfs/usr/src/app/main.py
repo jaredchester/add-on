@@ -734,7 +734,7 @@ async def process_emit(
     if not force and current_key == last_key and (now_ts - last_ts) < throttle_seconds:
         return {"status": "throttled", "route": resolved_route}
 
-    if is_muted(category):
+    if not force and is_muted(category):
         return {"status": "muted", "route": resolved_route}
 
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
