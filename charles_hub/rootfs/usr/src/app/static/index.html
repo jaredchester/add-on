@@ -268,6 +268,8 @@
                 <div><label for="weather_delta">Temp delta (°)</label><input type="number" id="weather_delta" min="0" step="1"></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_condition"><label for="weather_condition">Only on condition change</label></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_feed_only_minor"><label for="weather_feed_only_minor">Minor changes: feed only</label></div>
+                <div><label for="weather_entity">Weather entity</label><input type="text" id="weather_entity" placeholder="weather.home"></div>
+                <div><label for="weather_poll">Poll every (sec)</label><input type="number" id="weather_poll" min="60" step="30"></div>
               </div>
             </td>
           </tr>
@@ -453,6 +455,8 @@
       document.getElementById('calendar_morning_time').value = st.calendar_morning_time || '07:30';
       document.getElementById('calendar_evening_enabled').checked = st.calendar_evening_enabled ?? false;
       document.getElementById('calendar_evening_time').value = st.calendar_evening_time || '21:00';
+      document.getElementById('weather_entity').value = st.weather_entity || 'weather.home';
+      document.getElementById('weather_poll').value = st.weather_poll_interval ?? 300;
       const cats = st.categories || {};
       document.getElementById('cat_weather').checked = cats.weather ?? true;
       document.getElementById('cat_trivia').checked = cats.trivia ?? true;
@@ -538,6 +542,8 @@
         weather_temp_delta: Number(document.getElementById('weather_delta').value) || 0,
         weather_condition_change: document.getElementById('weather_condition').checked,
         weather_feed_only_minor: document.getElementById('weather_feed_only_minor').checked,
+        weather_entity: document.getElementById('weather_entity').value.trim() || 'weather.home',
+        weather_poll_interval: Number(document.getElementById('weather_poll').value) || 300,
         trivia_interval_min: Number(document.getElementById('trivia_min').value) || 0,
         trivia_interval_max: Number(document.getElementById('trivia_max').value) || 0,
         trivia_daily_cap: Number(document.getElementById('trivia_cap').value) || 0,
