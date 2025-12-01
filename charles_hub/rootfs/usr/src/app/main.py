@@ -1109,6 +1109,18 @@ async def weather_poll_loop() -> None:
             interval = max(60, int(state.get("weather_poll_interval", 300)))
             payload = await poll_weather_entity()
             if payload and payload.get("condition") not in (None, "unknown", "unavailable"):
+                now_ts = time.time()
+                async with state_lock:
+                    last_p = state.get("last_weather_payload", {}) or {}
+                    last_ts = float(state.get("last_weather_time", 0.0))
+                    min_gap = max(0, int(state.get("weather_min_gap", 0)))
+                same_payload = (
+                    str(payload.get("condition")).lower() == str(last_p.get("condition")).lower()
+                    and payload.get("temperature") == last_p.get("temperature")
+                )
+                if same_payload and min_gap > 0 and (now_ts - last_ts) < min_gap:
+                    await asyncio.sleep(interval)
+                    continue
                 context = f"Weather update: {payload.get('condition','?')} at {payload.get('temperature','?')}°."
                 result = await process_emit(
                     topic="weather",
