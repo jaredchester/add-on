@@ -117,6 +117,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "trivia_cache": [],
     "trivia_cache_ts": 0.0,
     "news_urls": options.get("news_urls", []),
+    "mutes": {},
     "last_musing_time": 0.0,
     "last_joke_time": 0.0,
     "last_trivia_time": 0.0,
@@ -234,6 +235,15 @@ def category_allowed(category: str) -> bool:
 def feed_category_allowed(category: str) -> bool:
     key = category.lower()
     return bool(state.get("feed_categories", {}).get(key, True))
+
+
+def is_muted(category: str) -> bool:
+    try:
+        muted = state.get("mutes", {})
+        until = float(muted.get(category.lower(), 0))
+        return until > time.time()
+    except Exception:
+        return False
 
 
 def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
@@ -663,6 +673,7 @@ async def process_emit(
     combine_window: Optional[int] = None,
     arrival_name: Optional[str] = None,
     arrival_location: Optional[str] = None,
+    force: bool = False,
 ) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
@@ -684,7 +695,7 @@ async def process_emit(
     combined_feed_prev = None
     combined_names: List[str] = []
     combine_mode = False
-    if category.lower() == "weather":
+    if category.lower() == "weather" and not force:
         if weather_min_gap > 0 and (now_ts - weather_last_time) < weather_min_gap:
             return {"status": "throttled", "route": resolved_route}
         current_payload = weather_payload or {}
@@ -720,8 +731,11 @@ async def process_emit(
             loc = arrival_location or topic
             context = context or f"{arrival_name or 'Someone'} arrived at {loc}."
     current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
-    if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
+    if not force and current_key == last_key and (now_ts - last_ts) < throttle_seconds:
         return {"status": "throttled", "route": resolved_route}
+
+    if is_muted(category):
+        return {"status": "muted", "route": resolved_route}
 
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
@@ -900,6 +914,7 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
         notify_tag_override=payload.get("notify_tag"),
         notify_title_override=payload.get("notify_title"),
         prompt_override=payload.get("prompt_override"),
+        force=bool(payload.get("force", False)),
         weather_payload={
             "temperature": payload.get("weather_temperature"),
             "condition": payload.get("weather_condition"),
@@ -913,6 +928,7 @@ async def emit(payload: Dict[str, Any]) -> JSONResponse:
 @app.post("/api/trigger")
 async def trigger(payload: Dict[str, Any]) -> JSONResponse:
     category = payload.get("category", "system")
+    force = bool(payload.get("force", False))
     if category.lower() in {"jokes", "musings", "trivia"}:
         result = await emit_with_retry(category, conversation_id=f"charles_trigger_{category}")
     else:
@@ -925,6 +941,7 @@ async def trigger(payload: Dict[str, Any]) -> JSONResponse:
             conversation_id=f"charles_trigger_{category}",
             use_raw_context=False,
             seed_tag=seed,
+            force=force,
         )
     if result.get("status") == "throttled":
         return JSONResponse(result, status_code=202)
@@ -946,6 +963,23 @@ async def reload_trivia() -> Dict[str, Any]:
     return {"status": "ok", "count": len(pool), "loaded_at": time.time()}
 
 
+@app.post("/api/mute")
+async def mute(payload: Dict[str, Any]) -> Dict[str, Any]:
+    category = payload.get("category")
+    minutes = float(payload.get("minutes", 0))
+    if not category:
+        raise HTTPException(status_code=400, detail="category required")
+    until = time.time() + (minutes * 60) if minutes > 0 else 0
+    async with state_lock:
+        mutes = state.setdefault("mutes", {})
+        if until > 0:
+            mutes[category.lower()] = until
+        else:
+            mutes.pop(category.lower(), None)
+        await persist_state()
+    return {"status": "ok", "category": category, "muted_until": until}
+
+
 async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
     name = payload.get("name") or payload.get("arrival_name") or payload.get("person")
     location = payload.get("location") or payload.get("arrival_location") or payload.get("topic", "home")
@@ -965,6 +999,7 @@ async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
             arrival_location=location,
             group_key=group_key,
             combine_window=combine_window,
+            force=bool(payload.get("force", False)),
         )
     async with state_lock:
         pending = state.setdefault("arrival_pending", {})

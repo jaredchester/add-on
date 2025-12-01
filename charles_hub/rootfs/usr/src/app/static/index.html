@@ -257,10 +257,10 @@
       <div class="table-wrap">
       <table>
         <thead>
-          <tr><th style="padding-left:12px;">Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell">Run</th></tr>
+          <tr><th style="padding-left:12px;">Category</th><th class="checkbox-cell">Notify</th><th class="checkbox-cell">Feed</th><th class="checkbox-cell">Run</th><th class="checkbox-cell">Mute</th></tr>
         </thead>
         <tbody>
-          <tr><td><button class="ghost-btn" id="btn-weather" onclick="toggleDetails('weather')">▾</button><span class="cat-label">Weather</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('weather')">▶</button></td></tr>
+          <tr><td><button class="ghost-btn" id="btn-weather" onclick="toggleDetails('weather')">▾</button><span class="cat-label">Weather</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_weather"></td><td class="checkbox-cell"><input type="checkbox" id="feed_weather"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('weather')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('weather',60)">Mute</button></td></tr>
           <tr id="row-weather" class="detail-row" style="display:none;">
             <td colspan="4">
               <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
@@ -273,7 +273,7 @@
               </div>
             </td>
           </tr>
-          <tr><td><button class="ghost-btn" id="btn-calendar" onclick="toggleDetails('calendar')">▾</button><span class="cat-label">Calendar</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('calendar')">▶</button></td></tr>
+          <tr><td><button class="ghost-btn" id="btn-calendar" onclick="toggleDetails('calendar')">▾</button><span class="cat-label">Calendar</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_calendar"></td><td class="checkbox-cell"><input type="checkbox" id="feed_calendar"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('calendar')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('calendar',60)">Mute</button></td></tr>
           <tr id="row-calendar" class="detail-row" style="display:none;">
             <td colspan="4">
               <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
@@ -288,7 +288,7 @@
               <textarea id="calendar_entities" placeholder="calendar.family&#10;calendar.work"></textarea>
             </td>
           </tr>
-          <tr><td><button class="ghost-btn" id="btn-trivia" onclick="toggleDetails('trivia')">▾</button><span class="cat-label">Trivia</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_trivia"></td><td class="checkbox-cell"><input type="checkbox" id="feed_trivia"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('trivia')">▶</button></td></tr>
+          <tr><td><button class="ghost-btn" id="btn-trivia" onclick="toggleDetails('trivia')">▾</button><span class="cat-label">Trivia</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_trivia"></td><td class="checkbox-cell"><input type="checkbox" id="feed_trivia"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('trivia')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('trivia',60)">Mute</button></td></tr>
           <tr id="row-trivia" class="detail-row" style="display:none;">
             <td colspan="4">
               <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
@@ -304,10 +304,10 @@
               <button class="secondary" onclick="reloadTrivia()">Reload trivia</button>
             </td>
           </tr>
-          <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td></tr>
-          <tr><td><span class="cat-label cat-offset">Vacuum</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td></tr>
-          <tr><td><span class="cat-label cat-offset">Lighting</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td></tr>
-          <tr><td><button class="ghost-btn" id="btn-arrivals" onclick="toggleDetails('arrivals')">▾</button><span class="cat-label">Arrivals</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('arrivals')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('system',60)">Mute</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">Vacuum</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('vacuum',60)">Mute</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">Lighting</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('lighting',60)">Mute</button></td></tr>
+          <tr><td><button class="ghost-btn" id="btn-arrivals" onclick="toggleDetails('arrivals')">▾</button><span class="cat-label">Arrivals</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('arrivals')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('arrivals',60)">Mute</button></td></tr>
           <tr id="row-arrivals" class="detail-row" style="display:none;">
             <td colspan="4">
               <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
@@ -317,9 +317,9 @@
               <div class="note">Delay buffers arrivals to avoid drive-through noise; combine merges arrivals to same location within window.</div>
             </td>
           </tr>
-          <tr><td><span class="cat-label cat-offset">People</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td></tr>
+          <tr><td><span class="cat-label cat-offset">People</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('people',60)">Mute</button></td></tr>
           <tr>
-            <td><button class="ghost-btn" id="btn-musings" onclick="toggleDetails('musings')">▾</button><span class="cat-label">Musings</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('musings')">▶</button></td>
+            <td><button class="ghost-btn" id="btn-musings" onclick="toggleDetails('musings')">▾</button><span class="cat-label">Musings</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('musings')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('musings',60)">Mute</button></td>
           </tr>
           <tr id="row-musings" class="detail-row" style="display:none;">
             <td colspan="4">
@@ -333,7 +333,7 @@
             </td>
           </tr>
           <tr>
-            <td><button class="ghost-btn" id="btn-jokes" onclick="toggleDetails('jokes')">▾</button><span class="cat-label">Jokes</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('jokes')">▶</button></td>
+            <td><button class="ghost-btn" id="btn-jokes" onclick="toggleDetails('jokes')">▾</button><span class="cat-label">Jokes</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_jokes"></td><td class="checkbox-cell"><input type="checkbox" id="feed_jokes"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('jokes')">▶</button></td><td class="checkbox-cell"><button class="secondary" onclick="muteCategory('jokes',60)">Mute</button></td>
           </tr>
           <tr id="row-jokes" class="detail-row" style="display:none;">
             <td colspan="4">
@@ -721,7 +721,7 @@
         const res = await api('api/trigger', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category: cat })
+          body: JSON.stringify({ category: cat, force: cat === 'weather' })
         });
         const data = await res.json();
         if (!res.ok && res.status !== 202) throw new Error(data.detail || 'Trigger failed');
@@ -730,6 +730,23 @@
       } catch (err) {
         console.error(err);
         setStatus('Quick trigger failed.', false);
+      }
+    }
+
+    async function muteCategory(cat, minutes) {
+      try {
+        const res = await api('api/mute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: cat, minutes })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Mute failed');
+        const until = data.muted_until ? new Date(data.muted_until * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'cleared';
+        setStatus(`Mute updated for ${cat}: ${until}`);
+      } catch (err) {
+        console.error(err);
+        setStatus('Mute update failed.', false);
       }
     }
 
