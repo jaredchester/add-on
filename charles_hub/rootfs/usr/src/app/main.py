@@ -125,15 +125,16 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "trivia_count_date": "",
     "trivia_count_today": 0,
     "trivia_interval_min": options.get("trivia_interval_min", 180),
-    "trivia_interval_max": options.get("trivia_interval_max", 360),
-    "trivia_daily_cap": options.get("trivia_daily_cap", 3),
-    "last_weather_time": 0.0,
-    "next_musing_time": 0.0,
-    "next_joke_time": 0.0,
-    "next_trivia_time": 0.0,
-    "last_entry_key": "",
-    "last_entry_time": 0.0,
-    "unread_count": 0,
+        "trivia_interval_max": options.get("trivia_interval_max", 360),
+        "trivia_daily_cap": options.get("trivia_daily_cap", 3),
+        "last_weather_time": 0.0,
+        "next_musing_time": 0.0,
+        "next_joke_time": 0.0,
+        "next_trivia_time": 0.0,
+        "arrival_groups": {},
+        "last_entry_key": "",
+        "last_entry_time": 0.0,
+        "unread_count": 0,
     "unread_log": [],
     "last_emit": {},
     "last_error": "",
@@ -240,6 +241,26 @@ def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
     except Exception as err:
         print(f"[charles] feed write failed: {err}")
     return line
+
+
+def replace_last_feed_line(expected: str, new_line: str) -> str:
+    try:
+        if not FEED_LOG_PATH.exists():
+            FEED_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            FEED_LOG_PATH.write_text(new_line + "\n", encoding="utf-8")
+            return new_line
+        lines = [ln for ln in FEED_LOG_PATH.read_text(encoding="utf-8").splitlines()]
+        if lines and lines[-1].strip() == expected.strip():
+            lines[-1] = new_line
+            FEED_LOG_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            return new_line
+        # Fallback append
+        with FEED_LOG_PATH.open("a", encoding="utf-8") as fp:
+            fp.write(new_line + "\n")
+        return new_line
+    except Exception as err:
+        print(f"[charles] feed replace failed: {err}")
+        return append_feed_line(time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time())), "arrivals", new_line)
 
 
 def parse_time_str(val: str) -> Optional[int]:
@@ -612,6 +633,10 @@ async def process_emit(
     use_raw_context: bool = False,
     seed_tag: Optional[str] = None,
     message_override: Optional[str] = None,
+    group_key: Optional[str] = None,
+    combine_window: Optional[int] = None,
+    arrival_name: Optional[str] = None,
+    arrival_location: Optional[str] = None,
 ) -> Dict[str, Any]:
     async with state_lock:
         default_route = state.get("route_default", "both")
@@ -620,12 +645,15 @@ async def process_emit(
         last_ts = float(state.get("last_entry_time", 0.0))
         resolved_route = default_route if route_raw == "default" else route_raw
         now_ts = time.time()
-        minor_weather = False
-        if category.lower() == "weather":
-            min_gap = int(state.get("weather_min_gap", 0))
-            last_weather = float(state.get("last_weather_time", 0.0))
-            if min_gap > 0 and (now_ts - last_weather) < min_gap:
-                return {"status": "throttled", "route": resolved_route}
+    minor_weather = False
+    combined_feed_prev = None
+    combined_names: List[str] = []
+    combine_mode = False
+    if category.lower() == "weather":
+        min_gap = int(state.get("weather_min_gap", 0))
+        last_weather = float(state.get("last_weather_time", 0.0))
+        if min_gap > 0 and (now_ts - last_weather) < min_gap:
+            return {"status": "throttled", "route": resolved_route}
             prev_payload = state.get("last_weather_payload", {}) or {}
             current_payload = weather_payload or {}
             if current_payload:
@@ -641,6 +669,24 @@ async def process_emit(
                         resolved_route = "feed"
                     else:
                         return {"status": "throttled", "route": resolved_route}
+    if category.lower() == "arrivals" and group_key:
+        awin = combine_window if combine_window is not None else 300
+        arrivals = state.get("arrival_groups", {})
+        prev = arrivals.get(group_key)
+        if prev and (now_ts - prev.get("ts", 0)) <= awin:
+            combine_mode = True
+            combined_names = list(prev.get("names", []))
+            if arrival_name:
+                combined_names.append(arrival_name)
+            combined_names = sorted(set([n for n in combined_names if n]))
+            loc = arrival_location or prev.get("location") or topic
+            context = f"{', '.join(combined_names)} arrived at {loc} within the last few minutes."
+            combined_feed_prev = prev.get("feed_line")
+        else:
+            if arrival_name:
+                combined_names = [arrival_name]
+            loc = arrival_location or topic
+            context = context or f"{arrival_name or 'Someone'} arrived at {loc}."
         current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
         if current_key == last_key and (now_ts - last_ts) < throttle_seconds:
             return {"status": "throttled", "route": resolved_route}
@@ -679,7 +725,11 @@ async def process_emit(
 
     feed_line = None
     if send_feed:
-        feed_line = append_feed_line(ts_iso, topic, message_text)
+        line_content = f"{ts_iso} · {topic} · {' '.join(message_text.split())}"
+        if combine_mode and combined_feed_prev:
+            feed_line = replace_last_feed_line(combined_feed_prev, line_content)
+        else:
+            feed_line = append_feed_line(ts_iso, topic, message_text)
 
     if send_notify:
         notify_service = notify_service_override or state.get("notify_service", "notify.mobile_app_pixel_9")
@@ -703,8 +753,16 @@ async def process_emit(
             existing = state.get("unread_log", [])
             state["unread_log"] = ([unread_entry] + existing)[:5]
             state["unread_count"] = int(state.get("unread_count", 0)) + 1
-        if category.lower() in {"jokes", "musings"}:
+        if category.lower() in {"jokes", "musings", "trivia"}:
             push_recent(category.lower(), seed_tag, message_text)
+        if category.lower() == "arrivals" and group_key:
+            arrivals = state.setdefault("arrival_groups", {})
+            arrivals[group_key] = {
+                "ts": now_ts,
+                "names": combined_names or ([arrival_name] if arrival_name else []),
+                "location": arrival_location or topic,
+                "feed_line": feed_line,
+            }
         state["last_emit"] = {
             "time": now_ts,
             "topic": topic,
