@@ -1109,29 +1109,12 @@ async def weather_poll_loop() -> None:
             interval = max(60, int(state.get("weather_poll_interval", 300)))
             payload = await poll_weather_entity()
             if payload and payload.get("condition") not in (None, "unknown", "unavailable"):
-                now_ts = time.time()
-                async with state_lock:
-                    last_p = state.get("last_weather_payload", {}) or {}
-                    last_ts = float(state.get("last_weather_time", 0.0))
-                    min_gap = max(0, int(state.get("weather_min_gap", 0)))
-                    temp_delta_req = float(state.get("weather_temp_delta", 5))
-                    cond_change_required = bool(state.get("weather_condition_change", True))
-                    feed_only_minor = bool(state.get("weather_feed_only_minor", False))
-                delta_ts = now_ts - last_ts
-                if min_gap > 0 and delta_ts < min_gap:
-                    await asyncio.sleep(interval)
-                    continue
-                significant, reason = weather_significant(last_p, payload, temp_delta_req, cond_change_required)
-                if not significant and not feed_only_minor:
-                    await asyncio.sleep(interval)
-                    continue
-                resolved_route = "feed" if (not significant and feed_only_minor) else "feed"
                 context = f"Weather update: {payload.get('condition','?')} at {payload.get('temperature','?')}°."
                 result = await process_emit(
                     topic="weather",
                     category="weather",
                     context=context,
-                    route_raw=resolved_route,
+                    route_raw="default",
                     conversation_id="charles_weather_poll",
                     weather_payload=payload,
                 )
@@ -1141,7 +1124,7 @@ async def weather_poll_loop() -> None:
                             "time": time.time(),
                             "topic": "weather",
                             "category": "weather",
-                            "route": resolved_route,
+                            "route": "feed",
                             "status": "ok",
                             "notified": result.get("notified", False),
                         }
