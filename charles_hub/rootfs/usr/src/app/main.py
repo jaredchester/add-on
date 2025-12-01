@@ -117,7 +117,6 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "trivia_cache": [],
     "trivia_cache_ts": 0.0,
     "news_urls": options.get("news_urls", []),
-    "mutes": {},
     "last_musing_time": 0.0,
     "last_joke_time": 0.0,
     "last_trivia_time": 0.0,
@@ -238,12 +237,7 @@ def feed_category_allowed(category: str) -> bool:
 
 
 def is_muted(category: str) -> bool:
-    try:
-        muted = state.get("mutes", {})
-        until = float(muted.get(category.lower(), 0))
-        return until > time.time()
-    except Exception:
-        return False
+    return False
 
 
 def append_feed_line(ts_iso: str, topic: str, message: str) -> str:
@@ -734,9 +728,6 @@ async def process_emit(
     if not force and current_key == last_key and (now_ts - last_ts) < throttle_seconds:
         return {"status": "throttled", "route": resolved_route}
 
-    if not force and is_muted(category):
-        return {"status": "muted", "route": resolved_route}
-
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
 
@@ -965,19 +956,7 @@ async def reload_trivia() -> Dict[str, Any]:
 
 @app.post("/api/mute")
 async def mute(payload: Dict[str, Any]) -> Dict[str, Any]:
-    category = payload.get("category")
-    minutes = float(payload.get("minutes", 0))
-    if not category:
-        raise HTTPException(status_code=400, detail="category required")
-    until = time.time() + (minutes * 60) if minutes > 0 else 0
-    async with state_lock:
-        mutes = state.setdefault("mutes", {})
-        if until > 0:
-            mutes[category.lower()] = until
-        else:
-            mutes.pop(category.lower(), None)
-        await persist_state()
-    return {"status": "ok", "category": category, "muted_until": until}
+    raise HTTPException(status_code=410, detail="mute support removed")
 
 
 async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
