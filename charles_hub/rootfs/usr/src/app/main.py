@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.37")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.38")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -131,6 +131,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "trivia_cache_ts": 0.0,
     "news_urls": options.get("news_urls", []),
     "pauses": {},
+    "paused_all_until": 0.0,
     "last_musing_time": 0.0,
     "last_joke_time": 0.0,
     "last_trivia_time": 0.0,
@@ -268,6 +269,14 @@ def is_paused(category: str) -> bool:
     try:
         pauses = state.get("pauses", {})
         until = float(pauses.get(category.lower(), 0))
+        return until > time.time()
+    except Exception:
+        return False
+
+
+def is_global_paused() -> bool:
+    try:
+        until = float(state.get("paused_all_until", 0))
         return until > time.time()
     except Exception:
         return False
@@ -707,6 +716,7 @@ async def health() -> Dict[str, Any]:
             "status": "ok",
             "last_emit": state.get("last_emit", {}),
             "last_error": state.get("last_error", ""),
+            "paused_all_until": state.get("paused_all_until", 0),
             "next_musing_time": state.get("next_musing_time", 0),
             "next_joke_time": state.get("next_joke_time", 0),
             "next_trivia_time": state.get("next_trivia_time", 0),
@@ -780,6 +790,7 @@ async def process_emit(
         throttle_seconds = int(state.get("throttle_seconds", 0))
         last_key = state.get("last_entry_key", "")
         last_ts = float(state.get("last_entry_time", 0.0))
+        paused_all_until = float(state.get("paused_all_until", 0.0))
         resolved_route = default_route if route_raw == "default" else route_raw
         now_ts = time.time()
 
@@ -833,6 +844,9 @@ async def process_emit(
     current_key = f"{category.lower()}|{topic.lower()}|{context.strip()}"
     if not force and current_key == last_key and (now_ts - last_ts) < throttle_seconds:
         return {"status": "throttled", "route": resolved_route}
+
+    if not force and paused_all_until > now_ts:
+        return {"status": "paused", "route": resolved_route, "paused_all_until": paused_all_until}
 
     if not force and is_paused(category):
         return {"status": "paused", "route": resolved_route}
@@ -1093,11 +1107,14 @@ async def pause(payload: Dict[str, Any]) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail="category required")
     until = time.time() + (minutes * 60) if minutes > 0 else 0
     async with state_lock:
-        pauses = state.setdefault("pauses", {})
-        if until > 0:
-            pauses[category.lower()] = until
+        if category.lower() == "all":
+            state["paused_all_until"] = until
         else:
-            pauses.pop(category.lower(), None)
+            pauses = state.setdefault("pauses", {})
+            if until > 0:
+                pauses[category.lower()] = until
+            else:
+                pauses.pop(category.lower(), None)
         await persist_state()
     return {"status": "ok", "category": category, "paused_until": until}
 

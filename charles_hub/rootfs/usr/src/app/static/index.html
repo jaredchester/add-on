@@ -263,6 +263,10 @@
         <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
         <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
       </div>
+      <div class="toggle" style="margin-top:6px; gap:10px;">
+        <button class="secondary" id="pause-all" onclick="toggleGlobalPause()">Pause all</button>
+        <span class="note" id="pause-all-note"></span>
+      </div>
       <button onclick="saveState()">Save routing</button>
         </div>
       </div>
@@ -516,6 +520,7 @@
         const ca = document.getElementById('conversation_agent'); if (ca) ca.value = st.conversation_agent_id || 'conversation.openai_conversation';
         const qs = document.getElementById('quiet_start'); if (qs) qs.value = st.quiet_hours_start || '22:00';
         const qe = document.getElementById('quiet_end'); if (qe) qe.value = st.quiet_hours_end || '07:00';
+        updateGlobalPauseButton(st.paused_all_until || 0);
         const wg = document.getElementById('weather_gap'); if (wg) wg.value = st.weather_min_gap ?? 0;
         const wd = document.getElementById('weather_delta'); if (wd) wd.value = st.weather_temp_delta ?? 5;
         const wc = document.getElementById('weather_condition'); if (wc) wc.checked = st.weather_condition_change ?? true;
@@ -900,6 +905,40 @@
       btn.classList.toggle('muted-btn', paused);
       btn.textContent = paused ? 'Paused' : 'Pause';
       btn.title = paused ? `Paused until ${new Date(until * 1000).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}` : 'Pause for 60m';
+    }
+
+    function updateGlobalPauseButton(pausedUntil) {
+      const btn = document.getElementById('pause-all');
+      const note = document.getElementById('pause-all-note');
+      if (!btn) return;
+      const now = Date.now() / 1000;
+      const paused = (pausedUntil || 0) > now;
+      btn.classList.toggle('muted-btn', paused);
+      btn.textContent = paused ? 'Resume all' : 'Pause all';
+      btn.title = paused ? `Paused until ${new Date(pausedUntil * 1000).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}` : 'Pause all for 60m';
+      if (note) note.textContent = paused ? `Paused until ${new Date(pausedUntil * 1000).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}` : 'Silence all categories for 60 minutes.';
+      currentState.paused_all_until = pausedUntil || 0;
+    }
+
+    async function toggleGlobalPause() {
+      try {
+        const pausedUntil = currentState.paused_all_until || 0;
+        const now = Date.now() / 1000;
+        const currentlyPaused = pausedUntil > now;
+        const minutes = currentlyPaused ? 0 : 60;
+        const res = await api('api/pause', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: 'all', minutes })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Pause failed');
+        updateGlobalPauseButton(data.paused_until || 0);
+        setStatus(currentlyPaused ? 'Global pause cleared.' : 'Global pause enabled for 60m.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Global pause failed.', false);
+      }
     }
 
     function syncCalendarSelection() {
