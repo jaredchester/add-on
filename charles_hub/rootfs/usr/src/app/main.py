@@ -27,6 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.30")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -650,8 +651,7 @@ async def health() -> Dict[str, Any]:
 async def get_state() -> Dict[str, Any]:
     async with state_lock:
         merged = dict(state)
-        opts = read_json(OPTIONS_PATH)
-        merged["addon_version"] = opts.get("version", "")
+        merged["addon_version"] = ADDON_VERSION
         return merged
 
 
