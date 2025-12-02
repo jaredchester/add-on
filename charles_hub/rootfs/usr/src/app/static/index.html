@@ -206,9 +206,14 @@
   </style>
 </head>
 <body>
-      <h1>CHARLES Hub</h1>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <h1 style="margin:0;">CHARLES Hub</h1>
+    <div style="display:flex; align-items:center; gap:8px;">
       <div class="version" id="ui-version">v0</div>
-      <div class="note" style="margin-bottom:8px;">Tip: fill persona + notify service, set weather/calendars, then save. Use Preview to test a response without emitting.</div>
+      <div class="status" id="status" style="display:none;"></div>
+    </div>
+  </div>
+  <div class="note" style="margin-bottom:8px;">Tip: fill persona + notify service, set weather/calendars, then save. Use Preview to test a response without emitting.</div>
   <div class="grid" id="card-grid">
     <div class="item" data-id="persona">
       <div class="item-content">
@@ -468,7 +473,7 @@
       if (txt) {
         statusTimer = setTimeout(() => {
           el.style.display = 'none';
-        }, 30000);
+        }, 10000);
       }
     };
 
