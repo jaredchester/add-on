@@ -660,6 +660,16 @@ async def update_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     async with state_lock:
         for k, v in payload.items():
             state[k] = v
+        # trim recents on save
+        rec_seeds = state.get("recent_seeds", {})
+        rec_outputs = state.get("recent_outputs", {})
+        for key in ["jokes", "musings", "trivia"]:
+            if key in rec_seeds:
+                rec_seeds[key] = rec_seeds[key][:RECENT_LIMIT]
+            if key in rec_outputs:
+                rec_outputs[key] = rec_outputs[key][:RECENT_LIMIT]
+        state["recent_seeds"] = rec_seeds
+        state["recent_outputs"] = rec_outputs
         await persist_state()
         return state
 

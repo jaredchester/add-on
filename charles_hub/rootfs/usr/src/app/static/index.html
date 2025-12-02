@@ -234,22 +234,22 @@
         </div>
         <div class="card-body" id="body-routing">
       <label for="route_default">Default route</label>
-      <select id="route_default">
+      <select id="route_default" title="Where to send emits by default when route=default">
         <option value="both">both</option>
         <option value="feed">feed</option>
         <option value="notify">notify</option>
         <option value="none">none</option>
       </select>
       <label for="throttle_seconds">Throttle seconds</label>
-      <input type="number" id="throttle_seconds" min="0" step="10">
+      <input type="number" id="throttle_seconds" min="0" step="10" title="Minimum seconds between identical emits">
       <div class="toggle"><input type="checkbox" id="feed_enabled"><label for="feed_enabled">Feed enabled</label></div>
       <div class="toggle"><input type="checkbox" id="notifications_enabled"><label for="notifications_enabled">Notifications enabled</label></div>
       <label for="notify_service">Notify service</label>
-      <input type="text" id="notify_service" placeholder="notify.mobile_app_pixel_9">
+      <input type="text" id="notify_service" placeholder="notify.mobile_app_pixel_9" title="HA notify service for pushes">
       <label for="notify_title">Notify title</label>
-      <input type="text" id="notify_title" placeholder="CHARLES says">
+      <input type="text" id="notify_title" placeholder="CHARLES says" title="Notification title">
       <label for="notify_tag">Notify tag</label>
-      <input type="text" id="notify_tag" placeholder="charles_stream">
+      <input type="text" id="notify_tag" placeholder="charles_stream" title="Notification tag/group">
       <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Quiet Hours</h3>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
         <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
@@ -282,7 +282,7 @@
                 <div><label for="weather_delta">Temp delta (°)</label><input type="number" id="weather_delta" min="0" step="1"></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_condition"><label for="weather_condition">Only on condition change</label></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_feed_only_minor"><label for="weather_feed_only_minor">Minor changes: feed only</label></div>
-                <div><label for="weather_entity">Weather entity <span class="note-inline">(used for polling)</span></label><input type="text" id="weather_entity" placeholder="weather.home"></div>
+                <div><label for="weather_entity">Weather entity <span class="note-inline">(used for polling)</span></label><input type="text" id="weather_entity" placeholder="weather.home" title="Entity ID to poll for weather"></div>
                 <div><label for="weather_poll">Poll every (sec)</label><input type="number" id="weather_poll" min="60" step="30"></div>
                 <div><label>Available weather entities</label><select id="weather_entity_select"></select><button class="secondary" onclick="loadEntities('weather')">Refresh</button><div class="note" id="weather-entity-status"></div></div>
               </div>
