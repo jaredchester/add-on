@@ -341,8 +341,19 @@
                 <div><label for="brief_morning_time">Morning time</label><input type="time" id="brief_morning_time" value="07:45"></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="brief_evening_enabled"><label for="brief_evening_enabled">Evening brief</label></div>
                 <div><label for="brief_evening_time">Evening time</label><input type="time" id="brief_evening_time" value="21:15"></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="brief_include_weather"><label for="brief_include_weather">Include weather</label></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="brief_include_calendar"><label for="brief_include_calendar">Include calendar</label></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="brief_include_unread"><label for="brief_include_unread">Include unread count</label></div>
+                <div>
+                  <label for="brief_seed_source">Seed source</label>
+                  <select id="brief_seed_source">
+                    <option value="musing">Musing pool</option>
+                    <option value="trivia">Trivia pool</option>
+                    <option value="both">Either</option>
+                  </select>
+                </div>
               </div>
-              <div class="note">Briefs include weather + calendar highlights + unread count + one seed.</div>
+              <div class="note">Briefs can include weather, calendar highlights, unread count, and one seed (musing/trivia).</div>
             </td>
           </tr>
           <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-system" onclick="pauseCategory('system',60)">Pause</button></td></tr>
@@ -528,6 +539,10 @@
         const bt = document.getElementById('brief_morning_time'); if (bt) bt.value = st.brief_time_morning || '07:45';
         const be = document.getElementById('brief_evening_enabled'); if (be) be.checked = st.brief_enabled_evening ?? false;
         const bet = document.getElementById('brief_evening_time'); if (bet) bet.value = st.brief_time_evening || '21:15';
+        const biw = document.getElementById('brief_include_weather'); if (biw) biw.checked = st.brief_include_weather ?? true;
+        const bic = document.getElementById('brief_include_calendar'); if (bic) bic.checked = st.brief_include_calendar ?? true;
+        const biu = document.getElementById('brief_include_unread'); if (biu) biu.checked = st.brief_include_unread ?? true;
+        const bss = document.getElementById('brief_seed_source'); if (bss) bss.value = st.brief_seed_source || 'musing';
         (document.getElementById('musing_min') || {}).value = st.musings_interval_min ?? 60;
         (document.getElementById('musing_max') || {}).value = st.musings_interval_max ?? 180;
         (document.getElementById('musing_cap') || {}).value = st.musings_daily_cap ?? 4;
@@ -547,6 +562,7 @@
         if (calSel) {
           const selected = (st.calendar_entities || []);
           Array.from(calSel.options).forEach((opt) => { opt.selected = selected.includes(opt.value); });
+          calSel.onchange = syncCalendarSelection;
         }
         const ad = document.getElementById('arrival_delay'); if (ad) ad.value = st.arrival_emit_delay ?? 0;
         const ac = document.getElementById('arrival_combine'); if (ac) ac.value = st.arrival_combine_window ?? 300;
@@ -616,6 +632,10 @@
         brief_enabled_evening: document.getElementById('brief_evening_enabled').checked,
         brief_time_morning: document.getElementById('brief_morning_time').value || '07:45',
         brief_time_evening: document.getElementById('brief_evening_time').value || '21:15',
+        brief_include_weather: document.getElementById('brief_include_weather').checked,
+        brief_include_calendar: document.getElementById('brief_include_calendar').checked,
+        brief_include_unread: document.getElementById('brief_include_unread').checked,
+        brief_seed_source: document.getElementById('brief_seed_source').value || 'musing',
         calendar_lead_minutes: Number(document.getElementById('calendar_lead').value) || 0,
         calendar_poll_interval: Number(document.getElementById('calendar_poll').value) || 300,
         calendar_morning_enabled: document.getElementById('calendar_morning_enabled').checked,
@@ -882,6 +902,14 @@
       btn.title = paused ? `Paused until ${new Date(until * 1000).toLocaleTimeString([], { hour:'numeric', minute:'2-digit' })}` : 'Pause for 60m';
     }
 
+    function syncCalendarSelection() {
+      const sel = document.getElementById('calendar_entity_select');
+      const txt = document.getElementById('calendar_entities');
+      if (!sel || !txt) return;
+      const selected = Array.from(sel.selectedOptions || []).map((opt) => opt.value.trim()).filter(Boolean);
+      txt.value = selected.join('\\n');
+    }
+
     async function loadEntities(domain) {
       try {
         const res = await api(`api/entities/${domain}`);
@@ -897,11 +925,23 @@
           opt.textContent = item.name ? `${item.name} (${item.entity_id})` : item.entity_id;
           sel.appendChild(opt);
         });
+        if (domain === 'calendar') {
+          const desired = (document.getElementById('calendar_entities')?.value || '').split('\\n').map(v => v.trim()).filter(Boolean);
+          Array.from(sel.options).forEach(opt => { opt.selected = desired.includes(opt.value); });
+          syncCalendarSelection();
+        }
+        if (domain === 'weather') {
+          const ent = document.getElementById('weather_entity')?.value || '';
+          if (ent) sel.value = ent;
+        }
         if (statusEl) statusEl.textContent = `Loaded ${data.entities?.length || 0} ${domain} entities.`;
         setStatus(`Loaded ${data.entities?.length || 0} ${domain} entities.`);
       } catch (err) {
         console.error(err);
-        setStatus(`Failed to load ${domain} entities.`, false);
+        const msg = err?.message || err?.toString() || 'Failed';
+        const statusEl = domain === 'weather' ? document.getElementById('weather-entity-status') : document.getElementById('calendar-entity-status');
+        if (statusEl) statusEl.textContent = `Failed to load ${domain} entities: ${msg}. Ensure SUPERVISOR_TOKEN is available.`;
+        setStatus(`Failed to load ${domain} entities. ${msg}`, false);
       }
     }
 

@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.30")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.37")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
