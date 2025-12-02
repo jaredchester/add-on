@@ -296,6 +296,15 @@
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_feed_only_minor"><label for="weather_feed_only_minor">Minor changes: feed only</label></div>
                 <div><label for="weather_entity">Weather entity <span class="note-inline">(used for polling)</span></label><input type="text" id="weather_entity" placeholder="weather.home" title="Entity ID to poll for weather"></div>
                 <div><label for="weather_poll">Poll every (sec)</label><input type="number" id="weather_poll" min="60" step="30"></div>
+                <div>
+                  <label for="weather_poll_route">Poll route</label>
+                  <select id="weather_poll_route">
+                    <option value="feed">feed</option>
+                    <option value="notify">notify</option>
+                    <option value="both">both</option>
+                  </select>
+                  <div class="note">Minor changes still respect “feed only” when enabled.</div>
+                </div>
                 <div><label>Available weather entities</label><select id="weather_entity_select"></select><button class="secondary" onclick="loadEntities('weather')">Refresh</button><div class="note" id="weather-entity-status"></div></div>
               </div>
             </td>
@@ -355,6 +364,10 @@
                     <option value="trivia">Trivia pool</option>
                     <option value="both">Either</option>
                   </select>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:8px;">
+                  <button class="secondary" onclick="previewBrief()">Preview brief</button>
+                  <div class="note" id="brief-preview-note"></div>
                 </div>
               </div>
               <div class="note">Briefs can include weather, calendar highlights, unread count, and one seed (musing/trivia).</div>
@@ -528,6 +541,7 @@
         const wEnt = document.getElementById('weather_entity'); if (wEnt) wEnt.value = st.weather_entity || 'weather.home';
         const wSel = document.getElementById('weather_entity_select'); if (wSel) wSel.value = st.weather_entity || 'weather.home';
         const wp = document.getElementById('weather_poll'); if (wp) wp.value = st.weather_poll_interval ?? 300;
+        const wr = document.getElementById('weather_poll_route'); if (wr) wr.value = st.weather_poll_route || 'feed';
         const cl = document.getElementById('calendar_lead'); if (cl) cl.value = st.calendar_lead_minutes ?? 60;
         const cp = document.getElementById('calendar_poll'); if (cp) cp.value = st.calendar_poll_interval ?? 300;
         const cme = document.getElementById('calendar_morning_enabled'); if (cme) cme.checked = st.calendar_morning_enabled ?? true;
@@ -628,6 +642,7 @@
         weather_feed_only_minor: document.getElementById('weather_feed_only_minor').checked,
         weather_entity: document.getElementById('weather_entity').value.trim() || 'weather.home',
         weather_poll_interval: Number(document.getElementById('weather_poll').value) || 300,
+        weather_poll_route: document.getElementById('weather_poll_route').value || 'feed',
         trivia_interval_min: Number(document.getElementById('trivia_min').value) || 0,
         trivia_interval_max: Number(document.getElementById('trivia_max').value) || 0,
         trivia_daily_cap: Number(document.getElementById('trivia_cap').value) || 0,
@@ -820,6 +835,25 @@
         console.error(err);
         document.getElementById('preview-output').textContent = '';
         setStatus('Preview failed.', false);
+      }
+    }
+
+    async function previewBrief() {
+      try {
+        setStatus('Building brief preview…');
+        const res = await api('api/preview/brief');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Brief preview failed');
+        const out = document.getElementById('preview-output');
+        if (out) out.textContent = data.message || data.context || '';
+        const note = document.getElementById('brief-preview-note');
+        if (note) note.textContent = data.context ? `Context: ${data.context}` : '';
+        setStatus('Brief preview ready.');
+      } catch (err) {
+        console.error(err);
+        const note = document.getElementById('brief-preview-note');
+        if (note) note.textContent = '';
+        setStatus('Brief preview failed.', false);
       }
     }
 

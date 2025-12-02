@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.38")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.39")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -93,8 +93,9 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "weather_temp_delta": options.get("weather_temp_delta", 5),
         "weather_condition_change": options.get("weather_condition_change", True),
         "weather_feed_only_minor": options.get("weather_feed_only_minor", False),
-    "weather_entity": options.get("weather_entity", "weather.home"),
-    "weather_poll_interval": options.get("weather_poll_interval", 300),
+        "weather_poll_route": options.get("weather_poll_route", "feed"),
+        "weather_entity": options.get("weather_entity", "weather.home"),
+        "weather_poll_interval": options.get("weather_poll_interval", 300),
     "last_weather_payload": {},
     "calendar_entities": options.get("calendar_entities", []),
     "calendar_lead_minutes": options.get("calendar_lead_minutes", 60),
@@ -727,6 +728,7 @@ async def health() -> Dict[str, Any]:
             "weather_temp_delta": state.get("weather_temp_delta", 5),
             "weather_condition_change": state.get("weather_condition_change", True),
             "weather_feed_only_minor": state.get("weather_feed_only_minor", False),
+            "weather_poll_route": state.get("weather_poll_route", "feed"),
         }
 
 
@@ -1094,6 +1096,21 @@ async def preview(payload: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "ok", "message": message, "category": category, "topic": topic, "context": context}
 
 
+@app.get("/api/preview/brief")
+async def preview_brief() -> Dict[str, Any]:
+    brief = await build_brief()
+    agent_prompt = state.get("persona_prompt", DEFAULT_PROMPT)
+    agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
+    message = await call_conversation(
+        prompt=agent_prompt,
+        topic="brief",
+        context=brief,
+        conversation_id="charles_preview_brief",
+        agent_id=agent_id,
+    )
+    return {"status": "ok", "context": brief, "message": message}
+
+
 @app.post("/api/mute")
 async def mute(payload: Dict[str, Any]) -> Dict[str, Any]:
     raise HTTPException(status_code=410, detail="mute support removed")
@@ -1378,11 +1395,12 @@ async def weather_poll_loop() -> None:
             payload = await poll_weather_entity()
             if payload and payload.get("condition") not in (None, "unknown", "unavailable"):
                 context = f"Weather update: {payload.get('condition','?')} at {payload.get('temperature','?')}°."
+                route = state.get("weather_poll_route", "feed")
                 result = await process_emit(
                     topic="weather",
                     category="weather",
                     context=context,
-                    route_raw="feed",
+                    route_raw=route if route in {"feed", "notify", "both"} else "feed",
                     conversation_id="charles_weather_poll",
                     weather_payload=payload,
                 )
