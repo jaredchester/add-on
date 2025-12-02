@@ -675,12 +675,19 @@
         notify_tag: document.getElementById('notify_tag').value.trim(),
         notify_cap_chars: Number(document.getElementById('notify_cap_chars').value) || 240,
         recent_limit: Number(document.getElementById('recent_limit').value) || 10,
-        notify_caps: {
-          weather: Number(document.getElementById('notify_cap_weather').value) || undefined,
-          people: Number(document.getElementById('notify_cap_presence').value) || undefined,
-          arrivals: Number(document.getElementById('notify_cap_presence').value) || undefined,
-          calendar: Number(document.getElementById('notify_cap_calendar').value) || undefined
-        },
+        notify_caps: (() => {
+          const caps = {};
+          const w = parseInt(document.getElementById('notify_cap_weather').value || '', 10);
+          const p = parseInt(document.getElementById('notify_cap_presence').value || '', 10);
+          const c = parseInt(document.getElementById('notify_cap_calendar').value || '', 10);
+          if (!isNaN(w) && w > 0) caps.weather = w;
+          if (!isNaN(p) && p > 0) {
+            caps.people = p;
+            caps.arrivals = p;
+          }
+          if (!isNaN(c) && c > 0) caps.calendar = c;
+          return caps;
+        })(),
         conversation_agent_id: document.getElementById('conversation_agent').value.trim() || 'conversation.openai_conversation',
         quiet_hours_start: document.getElementById('quiet_start').value || '22:00',
         quiet_hours_end: document.getElementById('quiet_end').value || '07:00',
