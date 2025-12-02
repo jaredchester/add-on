@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 DEFAULT_RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.49")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.50")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -1532,7 +1532,7 @@ async def presence_poll_loop() -> None:
                 await asyncio.sleep(interval)
                 continue
             persons_filter = [p.strip() for p in state.get("people_entities", []) if p.strip()]
-            zones_filter = [z.strip() for z in state.get("presence_zones", []) if z.strip()]
+            zones_filter = [z.strip().lower() for z in state.get("presence_zones", []) if z.strip()]
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.get("http://supervisor/core/api/states", headers={"Authorization": f"Bearer {token}"})
                 res.raise_for_status()
@@ -1551,7 +1551,7 @@ async def presence_poll_loop() -> None:
                 # ignore not_home / unknown transitions
                 if zone in {"not_home", "unknown", "unavailable"}:
                     continue
-                if zones_filter and zone not in zones_filter:
+                if zones_filter and zone.lower() not in zones_filter:
                     continue
                 prev = last_states.get(ent_id)
                 if prev == zone:
