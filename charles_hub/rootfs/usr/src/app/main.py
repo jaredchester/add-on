@@ -163,6 +163,16 @@ async def load_state() -> None:
     existing = read_json(DATA_PATH)
     merged = default_state(options)
     merged.update(existing)
+    # trim recents to RECENT_LIMIT
+    rec_seeds = merged.get("recent_seeds", {})
+    rec_outputs = merged.get("recent_outputs", {})
+    for key in ["jokes", "musings", "trivia"]:
+        if key in rec_seeds:
+            rec_seeds[key] = rec_seeds[key][:RECENT_LIMIT]
+        if key in rec_outputs:
+            rec_outputs[key] = rec_outputs[key][:RECENT_LIMIT]
+    merged["recent_seeds"] = rec_seeds
+    merged["recent_outputs"] = rec_outputs
     state = merged
     write_json(DATA_PATH, state)
 
