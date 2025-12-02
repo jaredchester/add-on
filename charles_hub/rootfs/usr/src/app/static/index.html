@@ -141,6 +141,13 @@
       color: var(--text);
       font-size: 0.9rem;
     }
+    .version {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -200,6 +207,7 @@
 </head>
 <body>
   <h1>CHARLES Hub</h1>
+  <div class="version" id="ui-version">v0</div>
   <div class="grid" id="card-grid">
     <div class="item" data-id="persona">
       <div class="item-content">
@@ -448,6 +456,9 @@
 
     function hydrate(st) {
       try {
+        const ver = st.addon_version || '';
+        const vEl = document.getElementById('ui-version');
+        if (vEl) vEl.textContent = ver ? `v${ver}` : '';
         (document.getElementById('persona') || {}).value = st.persona_prompt || '';
         (document.getElementById('route_default') || {}).value = st.route_default || 'both';
         const ts = document.getElementById('throttle_seconds'); if (ts) ts.value = st.throttle_seconds ?? 0;

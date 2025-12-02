@@ -639,7 +639,10 @@ async def health() -> Dict[str, Any]:
 @app.get("/api/state")
 async def get_state() -> Dict[str, Any]:
     async with state_lock:
-        return state
+        merged = dict(state)
+        opts = read_json(OPTIONS_PATH)
+        merged["addon_version"] = opts.get("version", "")
+        return merged
 
 
 @app.post("/api/state")
