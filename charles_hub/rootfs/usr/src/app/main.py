@@ -72,6 +72,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "people": True,
         "musings": True,
         "jokes": True,
+        "brief": True,
     },
     "feed_categories": {
         "weather": True,
@@ -84,6 +85,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "people": True,
         "musings": True,
         "jokes": True,
+        "brief": True,
     },
         "quiet_hours_start": options.get("quiet_hours_start", "22:00"),
         "quiet_hours_end": options.get("quiet_hours_end", "07:00"),

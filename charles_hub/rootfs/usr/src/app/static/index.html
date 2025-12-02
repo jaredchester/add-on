@@ -333,6 +333,18 @@
               <button class="secondary" onclick="reloadTrivia()">Reload trivia</button>
             </td>
           </tr>
+          <tr><td><button class="ghost-btn" id="btn-brief" onclick="toggleDetails('brief')">▾</button><span class="cat-label">Brief</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_brief"></td><td class="checkbox-cell"><input type="checkbox" id="feed_brief"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('brief')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-brief" onclick="pauseCategory('brief',60)">Pause</button></td></tr>
+          <tr id="row-brief" class="detail-row" style="display:none;">
+            <td colspan="5">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="brief_morning_enabled"><label for="brief_morning_enabled">Morning brief</label></div>
+                <div><label for="brief_morning_time">Morning time</label><input type="time" id="brief_morning_time" value="07:45"></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="brief_evening_enabled"><label for="brief_evening_enabled">Evening brief</label></div>
+                <div><label for="brief_evening_time">Evening time</label><input type="time" id="brief_evening_time" value="21:15"></div>
+              </div>
+              <div class="note">Briefs include weather + calendar highlights + unread count + one seed.</div>
+            </td>
+          </tr>
           <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-system" onclick="pauseCategory('system',60)">Pause</button></td></tr>
           <tr><td><span class="cat-label cat-offset">Vacuum</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-vacuum" onclick="pauseCategory('vacuum',60)">Pause</button></td></tr>
           <tr><td><span class="cat-label cat-offset">Lighting</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-lighting" onclick="pauseCategory('lighting',60)">Pause</button></td></tr>
@@ -508,10 +520,14 @@
         const cet = document.getElementById('calendar_evening_time'); if (cet) cet.value = st.calendar_evening_time || '21:00';
         const cats = st.categories || {};
         const feedCats = st.feed_categories || {};
-        ['weather','trivia','calendar','system','vacuum','lighting','arrivals','people','musings','jokes'].forEach(cat => {
+        ['weather','trivia','calendar','system','vacuum','lighting','arrivals','people','musings','jokes','brief'].forEach(cat => {
           const cEl = document.getElementById(`cat_${cat}`); if (cEl) cEl.checked = cats[cat] ?? true;
           const fEl = document.getElementById(`feed_${cat}`); if (fEl) fEl.checked = feedCats[cat] ?? true;
         });
+        const bm = document.getElementById('brief_morning_enabled'); if (bm) bm.checked = st.brief_enabled_morning ?? true;
+        const bt = document.getElementById('brief_morning_time'); if (bt) bt.value = st.brief_time_morning || '07:45';
+        const be = document.getElementById('brief_evening_enabled'); if (be) be.checked = st.brief_enabled_evening ?? false;
+        const bet = document.getElementById('brief_evening_time'); if (bet) bet.value = st.brief_time_evening || '21:15';
         (document.getElementById('musing_min') || {}).value = st.musings_interval_min ?? 60;
         (document.getElementById('musing_max') || {}).value = st.musings_interval_max ?? 180;
         (document.getElementById('musing_cap') || {}).value = st.musings_daily_cap ?? 4;
@@ -538,7 +554,7 @@
         const unread = st.unread_log || [];
         const ul = document.getElementById('unread-log'); if (ul) ul.textContent = unread.length ? `Unread log: ${unread.join(' | ')}` : '';
         const pauses = st.pauses || {};
-        ['weather','calendar','trivia','system','vacuum','lighting','arrivals','people','musings','jokes'].forEach(cat => updatePauseButton(cat, pauses));
+        ['weather','calendar','trivia','brief','system','vacuum','lighting','arrivals','people','musings','jokes'].forEach(cat => updatePauseButton(cat, pauses));
       } catch (err) {
         console.error('hydrate error', err);
         setStatus('Failed to load state.', false);
@@ -557,7 +573,8 @@
         arrivals: document.getElementById('cat_arrivals').checked,
         people: document.getElementById('cat_people').checked,
         musings: document.getElementById('cat_musings').checked,
-        jokes: document.getElementById('cat_jokes').checked
+        jokes: document.getElementById('cat_jokes').checked,
+        brief: document.getElementById('cat_brief').checked
       };
       const feed_categories = {
         weather: document.getElementById('feed_weather').checked,
@@ -569,7 +586,8 @@
         arrivals: document.getElementById('feed_arrivals').checked,
         people: document.getElementById('feed_people').checked,
         musings: document.getElementById('feed_musings').checked,
-        jokes: document.getElementById('feed_jokes').checked
+        jokes: document.getElementById('feed_jokes').checked,
+        brief: document.getElementById('feed_brief').checked
       };
       return {
         persona_prompt: document.getElementById('persona').value.trim(),
@@ -594,6 +612,10 @@
         trivia_daily_cap: Number(document.getElementById('trivia_cap').value) || 0,
         arrival_emit_delay: Number(document.getElementById('arrival_delay').value) || 0,
         arrival_combine_window: Number(document.getElementById('arrival_combine').value) || 0,
+        brief_enabled_morning: document.getElementById('brief_morning_enabled').checked,
+        brief_enabled_evening: document.getElementById('brief_evening_enabled').checked,
+        brief_time_morning: document.getElementById('brief_morning_time').value || '07:45',
+        brief_time_evening: document.getElementById('brief_evening_time').value || '21:15',
         calendar_lead_minutes: Number(document.getElementById('calendar_lead').value) || 0,
         calendar_poll_interval: Number(document.getElementById('calendar_poll').value) || 300,
         calendar_morning_enabled: document.getElementById('calendar_morning_enabled').checked,
