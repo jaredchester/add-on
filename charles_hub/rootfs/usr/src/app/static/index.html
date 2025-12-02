@@ -206,8 +206,9 @@
   </style>
 </head>
 <body>
-  <h1>CHARLES Hub</h1>
-  <div class="version" id="ui-version">v0</div>
+      <h1>CHARLES Hub</h1>
+      <div class="version" id="ui-version">v0</div>
+      <div class="note" style="margin-bottom:8px;">Tip: fill persona + notify service, set weather/calendars, then save. Use Preview to test a response without emitting.</div>
   <div class="grid" id="card-grid">
     <div class="item" data-id="persona">
       <div class="item-content">
@@ -250,6 +251,8 @@
       <input type="text" id="notify_title" placeholder="CHARLES says" title="Notification title">
       <label for="notify_tag">Notify tag</label>
       <input type="text" id="notify_tag" placeholder="charles_stream" title="Notification tag/group">
+      <label for="conversation_agent">Conversation agent ID</label>
+      <input type="text" id="conversation_agent" placeholder="conversation.openai_conversation" title="HA conversation agent entity_id">
       <h3 style="margin-top:12px; color: var(--accent); letter-spacing:0.04em; text-transform: uppercase; font-size:0.9rem;">Quiet Hours</h3>
       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
         <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
@@ -472,6 +475,7 @@
         const ns = document.getElementById('notify_service'); if (ns) ns.value = st.notify_service || '';
         const nt = document.getElementById('notify_title'); if (nt) nt.value = st.notify_title || '';
         const ng = document.getElementById('notify_tag'); if (ng) ng.value = st.notify_tag || '';
+        const ca = document.getElementById('conversation_agent'); if (ca) ca.value = st.conversation_agent_id || 'conversation.openai_conversation';
         const qs = document.getElementById('quiet_start'); if (qs) qs.value = st.quiet_hours_start || '22:00';
         const qe = document.getElementById('quiet_end'); if (qe) qe.value = st.quiet_hours_end || '07:00';
         const wg = document.getElementById('weather_gap'); if (wg) wg.value = st.weather_min_gap ?? 0;
@@ -561,6 +565,7 @@
         notify_service: document.getElementById('notify_service').value.trim(),
         notify_title: document.getElementById('notify_title').value.trim(),
         notify_tag: document.getElementById('notify_tag').value.trim(),
+        conversation_agent_id: document.getElementById('conversation_agent').value.trim() || 'conversation.openai_conversation',
         quiet_hours_start: document.getElementById('quiet_start').value || '22:00',
         quiet_hours_end: document.getElementById('quiet_end').value || '07:00',
         weather_min_gap: Number(document.getElementById('weather_gap').value) || 0,
