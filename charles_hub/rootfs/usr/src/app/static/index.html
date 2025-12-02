@@ -404,9 +404,7 @@
       <div class="feed" id="feed"></div>
       <div class="note" id="unread-meta">Unread: 0</div>
       <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="secondary" onclick="loadFeed()">Refresh feed</button>
         <button class="secondary" onclick="markRead()">Mark read</button>
-        <button class="secondary" onclick="toggleAutoFeed()" id="auto-btn">Auto-refresh</button>
       </div>
       <div class="note" id="unread-log"></div>
         </div>
@@ -844,21 +842,15 @@
     let autoFeed = false;
     let feedInterval = null;
     function toggleAutoFeed() {
-      autoFeed = !autoFeed;
-      const btn = document.getElementById('auto-btn');
-      if (autoFeed) {
-        loadFeed();
-        feedInterval = setInterval(loadFeed, 15000);
-        btn.textContent = 'Auto-refresh (on)';
-      } else {
-        if (feedInterval) clearInterval(feedInterval);
-        btn.textContent = 'Auto-refresh';
-      }
+      autoFeed = true;
+      loadFeed();
+      if (feedInterval) clearInterval(feedInterval);
+      feedInterval = setInterval(loadFeed, 15000);
     }
 
     initMuuri();
     window.addEventListener('resize', () => {});
-    loadState().then(() => { loadFeed(); loadHealth(); });
+    loadState().then(() => { loadFeed(); loadHealth(); toggleAutoFeed(); });
   </script>
 </body>
 </html>
