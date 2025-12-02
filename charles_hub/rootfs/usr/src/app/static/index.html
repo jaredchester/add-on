@@ -394,15 +394,13 @@
                 <div><label for="people_max">Max (min)</label><input type="number" id="people_max" min="1" step="5"></div>
                 <div><label for="people_cap">Daily cap</label><input type="number" id="people_cap" min="0" step="1"></div>
               </div>
-              <label for="people_entities" style="margin-top:8px;">People entities (one per line)</label>
-              <textarea id="people_entities" placeholder="person.jared&#10;person.laurie"></textarea>
               <div style="margin-top:6px;">
                 <label>Available people</label>
-                <select id="people_entity_select" multiple style="min-height:80px;"></select>
-                <button class="secondary" onclick="loadEntities('person')">Refresh</button>
+                <div id="people-list" class="note">Loading people…</div>
+                <button class="secondary" onclick="loadPeopleEntities()">Refresh people</button>
                 <div class="note" id="people-entity-status"></div>
               </div>
-              <div class="note">Presence updates summarize home/away for selected people. Leave list empty to include all persons.</div>
+              <div class="note">Presence updates summarize home/away for selected people. If none selected, all persons are included.</div>
             </td>
           </tr>
           <tr>
@@ -601,13 +599,7 @@
           Array.from(calSel.options).forEach((opt) => { opt.selected = selected.includes(opt.value); });
           calSel.onchange = syncCalendarSelection;
         }
-        const pplTxt = document.getElementById('people_entities'); if (pplTxt) pplTxt.value = (st.people_entities || []).join('\\n');
-        const pplSel = document.getElementById('people_entity_select');
-        if (pplSel) {
-          const selectedP = (st.people_entities || []);
-          Array.from(pplSel.options).forEach((opt) => { opt.selected = selectedP.includes(opt.value); });
-          pplSel.onchange = syncPeopleSelection;
-        }
+        loadPeopleEntities(st.people_entities || []);
         (document.getElementById('people_min') || {}).value = st.people_interval_min ?? 120;
         (document.getElementById('people_max') || {}).value = st.people_interval_max ?? 360;
         (document.getElementById('people_cap') || {}).value = st.people_daily_cap ?? 4;
@@ -698,7 +690,7 @@
         trivia_urls: document.getElementById('trivia_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
         news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
         calendar_entities: document.getElementById('calendar_entities').value.split('\\n').map(v => v.trim()).filter(Boolean),
-        people_entities: document.getElementById('people_entities').value.split('\\n').map(v => v.trim()).filter(Boolean),
+        people_entities: Array.from(document.querySelectorAll('.person-choice:checked')).map(el => el.value || el.dataset.id).filter(Boolean),
         musings_interval_min: Number(document.getElementById('musing_min').value) || 0,
         musings_interval_max: Number(document.getElementById('musing_max').value) || 0,
         musings_daily_cap: Number(document.getElementById('musing_cap').value) || 0,
@@ -1016,14 +1008,6 @@
       txt.value = selected.join('\\n');
     }
 
-    function syncPeopleSelection() {
-      const sel = document.getElementById('people_entity_select');
-      const txt = document.getElementById('people_entities');
-      if (!sel || !txt) return;
-      const selected = Array.from(sel.selectedOptions || []).map((opt) => opt.value.trim()).filter(Boolean);
-      txt.value = selected.join('\\n');
-    }
-
     async function loadEntities(domain) {
       try {
         const res = await api(`api/entities/${domain}`);
@@ -1031,14 +1015,10 @@
         if (!res.ok) throw new Error(data.detail || 'Fetch failed');
         const sel = domain === 'weather'
           ? document.getElementById('weather_entity_select')
-          : domain === 'calendar'
-            ? document.getElementById('calendar_entity_select')
-            : document.getElementById('people_entity_select');
+          : document.getElementById('calendar_entity_select');
         const statusEl = domain === 'weather'
           ? document.getElementById('weather-entity-status')
-          : domain === 'calendar'
-            ? document.getElementById('calendar-entity-status')
-            : document.getElementById('people-entity-status');
+          : document.getElementById('calendar-entity-status');
         if (!sel) return;
         sel.innerHTML = '';
         (data.entities || []).forEach((item) => {
@@ -1052,11 +1032,6 @@
           Array.from(sel.options).forEach(opt => { opt.selected = desired.includes(opt.value); });
           syncCalendarSelection();
         }
-        if (domain === 'person') {
-          const desired = (document.getElementById('people_entities')?.value || '').split('\\n').map(v => v.trim()).filter(Boolean);
-          Array.from(sel.options).forEach(opt => { opt.selected = desired.includes(opt.value); });
-          syncPeopleSelection();
-        }
         if (domain === 'weather') {
           const ent = document.getElementById('weather_entity')?.value || '';
           if (ent) sel.value = ent;
@@ -1069,6 +1044,37 @@
         const statusEl = domain === 'weather' ? document.getElementById('weather-entity-status') : document.getElementById('calendar-entity-status');
         if (statusEl) statusEl.textContent = `Failed to load ${domain} entities: ${msg}. Ensure SUPERVISOR_TOKEN is available.`;
         setStatus(`Failed to load ${domain} entities. ${msg}`, false);
+      }
+    }
+
+    async function loadPeopleEntities(selectedIds) {
+      try {
+        const res = await api('api/entities/person');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Fetch failed');
+        const list = document.getElementById('people-list');
+        const statusEl = document.getElementById('people-entity-status');
+        if (!list) return;
+        const selected = selectedIds || currentState.people_entities || [];
+        const items = data.entities || [];
+        if (!items.length) {
+          list.innerHTML = '<div class="note">No person entities found. Ensure person.* exists and SUPERVISOR_TOKEN is set.</div>';
+        } else {
+          list.innerHTML = items.map((item) => {
+            const id = item.entity_id;
+            const name = item.name || id;
+            const checked = selected.includes(id) ? 'checked' : '';
+            return `<label style="display:flex; align-items:center; gap:8px; margin:4px 0;"><input class="person-choice" type="checkbox" value="${id}" ${checked}>${name}</label>`;
+          }).join('');
+        }
+        if (statusEl) statusEl.textContent = `Loaded ${items.length} people.`;
+        setStatus('Loaded people.');
+      } catch (err) {
+        console.error(err);
+        const statusEl = document.getElementById('people-entity-status');
+        const msg = err?.message || err?.toString() || 'Failed';
+        if (statusEl) statusEl.textContent = `Failed to load people: ${msg}. Ensure SUPERVISOR_TOKEN is available.`;
+        setStatus('Failed to load people.', false);
       }
     }
 
