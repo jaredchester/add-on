@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.41")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.42")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -155,6 +155,10 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "people_interval_max": options.get("people_interval_max", 360),
         "people_daily_cap": options.get("people_daily_cap", 4),
         "people_entities": options.get("people_entities", []),
+        "presence_zones": options.get("presence_zones", []),
+        "presence_auto_arrivals": options.get("presence_auto_arrivals", True),
+        "presence_poll_interval": options.get("presence_poll_interval", 60),
+        "presence_last_states": {},
         "next_people_time": 0.0,
         "last_people_time": 0.0,
         "people_count_date": "",
@@ -742,6 +746,7 @@ async def startup() -> None:
     asyncio.create_task(scheduled_loop("jokes"))
     asyncio.create_task(scheduled_loop("trivia"))
     asyncio.create_task(scheduled_people_loop())
+    asyncio.create_task(presence_poll_loop())
     asyncio.create_task(brief_loop())
     asyncio.create_task(weather_poll_loop())
     asyncio.create_task(calendar_poll_loop())
@@ -768,6 +773,7 @@ async def health() -> Dict[str, Any]:
             "next_joke_time": state.get("next_joke_time", 0),
             "next_trivia_time": state.get("next_trivia_time", 0),
             "next_people_time": state.get("next_people_time", 0),
+            "presence_poll_interval": state.get("presence_poll_interval", 60),
             "last_calendar_poll": state.get("last_calendar_poll", 0),
             "last_weather_time": state.get("last_weather_time", 0),
             "last_weather_payload": state.get("last_weather_payload", {}),
@@ -1186,8 +1192,8 @@ async def pause(payload: Dict[str, Any]) -> Dict[str, Any]:
 @app.get("/api/entities/{domain}")
 async def list_entities(domain: str) -> Dict[str, Any]:
     domain = domain.lower()
-    if domain not in {"weather", "calendar", "person"}:
-        raise HTTPException(status_code=400, detail="domain must be weather, calendar, or person")
+    if domain not in {"weather", "calendar", "person", "zone"}:
+        raise HTTPException(status_code=400, detail="domain must be weather, calendar, person, or zone")
     token = os.getenv("SUPERVISOR_TOKEN")
     if not token:
         raise HTTPException(status_code=500, detail="Missing supervisor token")
@@ -1211,13 +1217,14 @@ async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
     location = payload.get("location") or payload.get("arrival_location") or payload.get("topic", "home")
     group_key = payload.get("group_key") or location
     context = payload.get("context") or f"{name or 'Someone'} arrived at {location}."
+    category_override = payload.get("category_override")
     delay = int(state.get("arrival_emit_delay", 0))
     combine_window = int(state.get("arrival_combine_window", 300))
     now_ts = time.time()
     if delay <= 0:
         return await process_emit(
             topic=payload.get("topic", location),
-            category="arrivals",
+            category=category_override or "arrivals",
             context=context,
             route_raw=payload.get("route", "default"),
             conversation_id=payload.get("conversation_id", "charles_arrivals"),
@@ -1241,6 +1248,7 @@ async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
             "route": payload.get("route", "default"),
             "conversation_id": payload.get("conversation_id", "charles_arrivals"),
             "combine_window": combine_window,
+            "category_override": category_override or "arrivals",
         })
         pending[group_key] = entry
         await persist_state()
@@ -1277,7 +1285,7 @@ async def arrival_pending_loop() -> None:
                     ctx = f"{', '.join(names)} arrived at {location} within the last few minutes."
                 await process_emit(
                     topic=location,
-                    category="arrivals",
+                    category=entry.get("category_override") or "arrivals",
                     context=ctx,
                     route_raw=entry.get("route", "default"),
                     conversation_id=entry.get("conversation_id", "charles_arrivals"),
@@ -1417,6 +1425,68 @@ async def scheduled_people_loop() -> None:
                     await persist_state()
         except Exception as err:
             print(f"[charles] scheduler error (people): {err}")
+            await asyncio.sleep(60)
+
+
+async def presence_poll_loop() -> None:
+    """Poll person entities to auto-detect arrivals into selected zones/home."""
+    while True:
+        try:
+            interval = max(20, int(state.get("presence_poll_interval", 60)))
+            auto_on = bool(state.get("presence_auto_arrivals", True))
+            if not auto_on:
+                await asyncio.sleep(interval)
+                continue
+            token = os.getenv("SUPERVISOR_TOKEN")
+            if not token:
+                await asyncio.sleep(interval)
+                continue
+            persons_filter = [p.strip() for p in state.get("people_entities", []) if p.strip()]
+            zones_filter = [z.strip() for z in state.get("presence_zones", []) if z.strip()]
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get("http://supervisor/core/api/states", headers={"Authorization": f"Bearer {token}"})
+                res.raise_for_status()
+                data = res.json()
+            # build lookup of last states
+            async with state_lock:
+                last_states = dict(state.get("presence_last_states", {}))
+            updates = []
+            for item in data:
+                ent_id = str(item.get("entity_id", ""))
+                if not ent_id.startswith("person."):
+                    continue
+                if persons_filter and ent_id not in persons_filter:
+                    continue
+                zone = str(item.get("state", "unknown"))
+                # ignore not_home / unknown transitions
+                if zone in {"not_home", "unknown", "unavailable"}:
+                    continue
+                if zones_filter and zone not in zones_filter:
+                    continue
+                prev = last_states.get(ent_id)
+                if prev == zone:
+                    continue
+                name = item.get("attributes", {}).get("friendly_name") or ent_id
+                updates.append((ent_id, name, zone))
+                last_states[ent_id] = zone
+            if updates:
+                async with state_lock:
+                    state["presence_last_states"] = last_states
+                    await persist_state()
+                for ent_id, name, zone in updates:
+                    ctx = f"{name} arrived at {zone}."
+                    payload = {
+                        "name": name,
+                        "location": zone,
+                        "group_key": zone,
+                        "context": ctx,
+                        "category_override": "people",
+                        "route": "default",
+                    }
+                    await handle_arrival_emit(payload)
+            await asyncio.sleep(interval)
+        except Exception as err:
+            print(f"[charles] presence poll loop error: {err}")
             await asyncio.sleep(60)
 async def poll_weather_entity() -> Optional[Dict[str, Any]]:
     token = os.getenv("SUPERVISOR_TOKEN")

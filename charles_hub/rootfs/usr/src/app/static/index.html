@@ -376,31 +376,29 @@
           <tr><td><span class="cat-label cat-offset">System</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_system"></td><td class="checkbox-cell"><input type="checkbox" id="feed_system"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('system')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-system" onclick="pauseCategory('system',60)">Pause</button></td></tr>
           <tr><td><span class="cat-label cat-offset">Vacuum</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_vacuum"></td><td class="checkbox-cell"><input type="checkbox" id="feed_vacuum"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('vacuum')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-vacuum" onclick="pauseCategory('vacuum',60)">Pause</button></td></tr>
           <tr><td><span class="cat-label cat-offset">Lighting</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_lighting"></td><td class="checkbox-cell"><input type="checkbox" id="feed_lighting"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('lighting')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-lighting" onclick="pauseCategory('lighting',60)">Pause</button></td></tr>
-          <tr><td><button class="ghost-btn" id="btn-arrivals" onclick="toggleDetails('arrivals')">▾</button><span class="cat-label">Arrivals</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_arrivals"></td><td class="checkbox-cell"><input type="checkbox" id="feed_arrivals"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('arrivals')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-arrivals" onclick="pauseCategory('arrivals',60)">Pause</button></td></tr>
-          <tr id="row-arrivals" class="detail-row" style="display:none;">
-            <td colspan="5">
-              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
-                <div><label for="arrival_delay">Delay emit (sec)</label><input type="number" id="arrival_delay" min="0" step="10"></div>
-                <div><label for="arrival_combine">Combine window (sec)</label><input type="number" id="arrival_combine" min="0" step="10"></div>
-              </div>
-              <div class="note">Delay buffers arrivals to avoid drive-through noise; combine merges arrivals to same location within window.</div>
-            </td>
-          </tr>
-          <tr><td><button class="ghost-btn" id="btn-people" onclick="toggleDetails('people')">▾</button><span class="cat-label">People</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-people" onclick="pauseCategory('people',60)">Pause</button></td></tr>
+          <tr><td><button class="ghost-btn" id="btn-people" onclick="toggleDetails('people')">▾</button><span class="cat-label">Presence</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-people" onclick="pauseCategory('people',60)">Pause</button></td></tr>
           <tr id="row-people" class="detail-row" style="display:none;">
             <td colspan="5">
               <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
-                <div><label for="people_min">Min (min)</label><input type="number" id="people_min" min="1" step="5"></div>
-                <div><label for="people_max">Max (min)</label><input type="number" id="people_max" min="1" step="5"></div>
+                <div><label for="people_min">Snapshot min (min)</label><input type="number" id="people_min" min="1" step="5"></div>
+                <div><label for="people_max">Snapshot max (min)</label><input type="number" id="people_max" min="1" step="5"></div>
                 <div><label for="people_cap">Daily cap</label><input type="number" id="people_cap" min="0" step="1"></div>
+                <div><label for="presence_poll">Arrival poll (sec)</label><input type="number" id="presence_poll" min="20" step="10"></div>
+                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="presence_auto"><label for="presence_auto">Auto-detect arrivals</label></div>
+                <div><label for="arrival_delay">Arrival delay (sec)</label><input type="number" id="arrival_delay" min="0" step="5"></div>
+                <div><label for="arrival_combine">Combine window (sec)</label><input type="number" id="arrival_combine" min="0" step="5"></div>
               </div>
               <div style="margin-top:6px;">
-                <label>Available people</label>
+                <label>People to include</label>
                 <div id="people-list" class="note">Loading people…</div>
-                <button class="secondary" onclick="loadPeopleEntities()">Refresh people</button>
                 <div class="note" id="people-entity-status"></div>
               </div>
-              <div class="note">Presence updates summarize home/away for selected people. If none selected, all persons are included.</div>
+              <div style="margin-top:8px;">
+                <label>Zones to watch</label>
+                <div id="zone-list" class="note">Loading zones…</div>
+                <div class="note" id="zone-entity-status"></div>
+              </div>
+              <div class="note">Presence updates summarize home/away; arrivals are auto-detected into selected zones/home using combine/delay.</div>
             </td>
           </tr>
           <tr>
@@ -600,9 +598,12 @@
           calSel.onchange = syncCalendarSelection;
         }
         loadPeopleEntities(st.people_entities || []);
+        loadZoneEntities(st.presence_zones || []);
         (document.getElementById('people_min') || {}).value = st.people_interval_min ?? 120;
         (document.getElementById('people_max') || {}).value = st.people_interval_max ?? 360;
         (document.getElementById('people_cap') || {}).value = st.people_daily_cap ?? 4;
+        const pp = document.getElementById('presence_poll'); if (pp) pp.value = st.presence_poll_interval ?? 60;
+        const pa = document.getElementById('presence_auto'); if (pa) pa.checked = st.presence_auto_arrivals ?? true;
         const ad = document.getElementById('arrival_delay'); if (ad) ad.value = st.arrival_emit_delay ?? 0;
         const ac = document.getElementById('arrival_combine'); if (ac) ac.value = st.arrival_combine_window ?? 300;
         const um = document.getElementById('unread-meta'); if (um) um.textContent = `Unread: ${st.unread_count ?? 0}`;
@@ -691,6 +692,7 @@
         news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
         calendar_entities: document.getElementById('calendar_entities').value.split('\\n').map(v => v.trim()).filter(Boolean),
         people_entities: Array.from(document.querySelectorAll('.person-choice:checked')).map(el => el.value || el.dataset.id).filter(Boolean),
+        presence_zones: Array.from(document.querySelectorAll('.zone-choice:checked')).map(el => el.value || el.dataset.id).filter(Boolean),
         musings_interval_min: Number(document.getElementById('musing_min').value) || 0,
         musings_interval_max: Number(document.getElementById('musing_max').value) || 0,
         musings_daily_cap: Number(document.getElementById('musing_cap').value) || 0,
@@ -699,7 +701,9 @@
         jokes_daily_cap: Number(document.getElementById('joke_cap').value) || 0,
         people_interval_min: Number(document.getElementById('people_min').value) || 0,
         people_interval_max: Number(document.getElementById('people_max').value) || 0,
-        people_daily_cap: Number(document.getElementById('people_cap').value) || 0
+        people_daily_cap: Number(document.getElementById('people_cap').value) || 0,
+        presence_poll_interval: Number(document.getElementById('presence_poll').value) || 60,
+        presence_auto_arrivals: document.getElementById('presence_auto').checked
       };
     }
 
@@ -1032,6 +1036,18 @@
           Array.from(sel.options).forEach(opt => { opt.selected = desired.includes(opt.value); });
           syncCalendarSelection();
         }
+        if (domain === 'zone') {
+          const selected = currentState.presence_zones || [];
+          const list = document.getElementById('zone-list');
+          if (list) {
+            list.innerHTML = (data.entities || []).map((item) => {
+              const id = item.entity_id;
+              const name = item.name || id;
+              const checked = selected.includes(id) ? 'checked' : '';
+              return `<label style="display:flex; align-items:center; gap:8px; margin:4px 0;"><input class="zone-choice" type="checkbox" value="${id}" ${checked}>${name}</label>`;
+            }).join('');
+          }
+        }
         if (domain === 'weather') {
           const ent = document.getElementById('weather_entity')?.value || '';
           if (ent) sel.value = ent;
@@ -1075,6 +1091,37 @@
         const msg = err?.message || err?.toString() || 'Failed';
         if (statusEl) statusEl.textContent = `Failed to load people: ${msg}. Ensure SUPERVISOR_TOKEN is available.`;
         setStatus('Failed to load people.', false);
+      }
+    }
+
+    async function loadZoneEntities(selectedIds) {
+      try {
+        const res = await api('api/entities/zone');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Fetch failed');
+        const list = document.getElementById('zone-list');
+        const statusEl = document.getElementById('zone-entity-status');
+        if (!list) return;
+        const selected = selectedIds || currentState.presence_zones || [];
+        const items = data.entities || [];
+        if (!items.length) {
+          list.innerHTML = '<div class="note">No zones found. Ensure zone.* exists and SUPERVISOR_TOKEN is set.</div>';
+        } else {
+          list.innerHTML = items.map((item) => {
+            const id = item.entity_id;
+            const name = item.name || id;
+            const checked = selected.includes(id) ? 'checked' : '';
+            return `<label style="display:flex; align-items:center; gap:8px; margin:4px 0;"><input class="zone-choice" type="checkbox" value="${id}" ${checked}>${name}</label>`;
+          }).join('');
+        }
+        if (statusEl) statusEl.textContent = `Loaded ${items.length} zones.`;
+        setStatus('Loaded zones.');
+      } catch (err) {
+        console.error(err);
+        const statusEl = document.getElementById('zone-entity-status');
+        const msg = err?.message || err?.toString() || 'Failed';
+        if (statusEl) statusEl.textContent = `Failed to load zones: ${msg}. Ensure SUPERVISOR_TOKEN is available.`;
+        setStatus('Failed to load zones.', false);
       }
     }
 
