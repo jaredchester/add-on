@@ -250,6 +250,10 @@
       <input type="number" id="throttle_seconds" min="0" step="10" title="Minimum seconds between identical emits">
       <div class="toggle"><input type="checkbox" id="feed_enabled"><label for="feed_enabled">Feed enabled</label></div>
       <div class="toggle"><input type="checkbox" id="notifications_enabled"><label for="notifications_enabled">Notifications enabled</label></div>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
+        <div><label for="recent_limit">Recent memory limit</label><input type="number" id="recent_limit" min="3" step="1" title="How many recent seeds/outputs to track for de-duplication"></div>
+        <div><label for="notify_cap_chars">Notify summary cap (chars)</label><input type="number" id="notify_cap_chars" min="60" step="10" title="Maximum length of aggregated notification message"></div>
+      </div>
       <label for="notify_service">Notify service</label>
       <input type="text" id="notify_service" placeholder="notify.mobile_app_pixel_9" title="HA notify service for pushes">
       <label for="notify_title">Notify title</label>
@@ -546,6 +550,8 @@
         const ns = document.getElementById('notify_service'); if (ns) ns.value = st.notify_service || '';
         const nt = document.getElementById('notify_title'); if (nt) nt.value = st.notify_title || '';
         const ng = document.getElementById('notify_tag'); if (ng) ng.value = st.notify_tag || '';
+        const rl = document.getElementById('recent_limit'); if (rl) rl.value = st.recent_limit ?? 10;
+        const nc = document.getElementById('notify_cap_chars'); if (nc) nc.value = st.notify_cap_chars ?? 240;
         const ca = document.getElementById('conversation_agent'); if (ca) ca.value = st.conversation_agent_id || 'conversation.openai_conversation';
         const qs = document.getElementById('quiet_start'); if (qs) qs.value = st.quiet_hours_start || '22:00';
         const qe = document.getElementById('quiet_end'); if (qe) qe.value = st.quiet_hours_end || '07:00';
@@ -658,6 +664,8 @@
         notify_service: document.getElementById('notify_service').value.trim(),
         notify_title: document.getElementById('notify_title').value.trim(),
         notify_tag: document.getElementById('notify_tag').value.trim(),
+        notify_cap_chars: Number(document.getElementById('notify_cap_chars').value) || 240,
+        recent_limit: Number(document.getElementById('recent_limit').value) || 10,
         conversation_agent_id: document.getElementById('conversation_agent').value.trim() || 'conversation.openai_conversation',
         quiet_hours_start: document.getElementById('quiet_start').value || '22:00',
         quiet_hours_end: document.getElementById('quiet_end').value || '07:00',

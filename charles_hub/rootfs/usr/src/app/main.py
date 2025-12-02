@@ -26,8 +26,8 @@ DEFAULT_PROMPT = (
     "You are CHARLES – the Chester House Automated Residential Liaison & Executive System – "
     "a sardonic, witty butler. Reply in one short sentence."
 )
-RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.44")
+DEFAULT_RECENT_LIMIT = 10
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.45")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -51,6 +51,8 @@ def write_json(path: Path, data: Dict[str, Any]) -> None:
 
 
 def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
+    recent_limit = int(options.get("recent_limit", DEFAULT_RECENT_LIMIT))
+    notify_cap_chars = int(options.get("notify_cap_chars", 240))
     return {
         "persona_prompt": options.get("persona_prompt") or DEFAULT_PROMPT,
         "route_default": "both",
@@ -58,9 +60,10 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "feed_enabled": True,
         "notifications_enabled": True,
         "notify_service": "notify.mobile_app_pixel_9",
-    "notify_tag": "charles_stream",
-    "notify_title": "CHARLES says",
-    "conversation_agent_id": "conversation.openai_conversation",
+        "notify_tag": "charles_stream",
+        "notify_title": "CHARLES says",
+        "notify_cap_chars": notify_cap_chars,
+        "conversation_agent_id": "conversation.openai_conversation",
     "categories": {
         "weather": True,
         "trivia": True,
@@ -95,6 +98,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "weather_condition_change": options.get("weather_condition_change", True),
         "weather_feed_only_minor": options.get("weather_feed_only_minor", False),
         "weather_poll_route": options.get("weather_poll_route", "feed"),
+        "recent_limit": recent_limit,
         "weather_entity": options.get("weather_entity", "weather.home"),
         "weather_poll_interval": options.get("weather_poll_interval", 300),
     "last_weather_payload": {},
@@ -172,11 +176,11 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "unread_log": [],
     "last_emit": {},
     "last_error": "",
-    "recent_seeds": {
-        "jokes": [],
-        "musings": [],
-        "trivia": [],
-    },
+        "recent_seeds": {
+            "jokes": [],
+            "musings": [],
+            "trivia": [],
+        },
     "recent_outputs": {
         "jokes": [],
         "musings": [],
@@ -191,14 +195,15 @@ async def load_state() -> None:
     existing = read_json(DATA_PATH)
     merged = default_state(options)
     merged.update(existing)
-    # trim recents to RECENT_LIMIT
+    rl = int(merged.get("recent_limit", DEFAULT_RECENT_LIMIT))
+    # trim recents to limit
     rec_seeds = merged.get("recent_seeds", {})
     rec_outputs = merged.get("recent_outputs", {})
     for key in ["jokes", "musings", "trivia"]:
         if key in rec_seeds:
-            rec_seeds[key] = rec_seeds[key][:RECENT_LIMIT]
+            rec_seeds[key] = rec_seeds[key][:rl]
         if key in rec_outputs:
-            rec_outputs[key] = rec_outputs[key][:RECENT_LIMIT]
+            rec_outputs[key] = rec_outputs[key][:rl]
     merged["recent_seeds"] = rec_seeds
     merged["recent_outputs"] = rec_outputs
     state = merged
@@ -335,8 +340,9 @@ def build_notify_summary(current: str, existing_unread: List[str]) -> str:
         out = entries[0]
     parts = [f"{idx+1}) {txt}" for idx, txt in enumerate(entries)]
     out = f"{len(entries)} updates: " + " | ".join(parts)
-    if len(out) > 240:
-        out = out[:237] + "..."
+    cap = int(state.get("notify_cap_chars", 240) or 240)
+    if cap > 0 and len(out) > cap:
+        out = out[: max(0, cap - 3)] + "..."
     return out
 
 
@@ -604,14 +610,15 @@ def push_recent(category: str, seed: Optional[str], message: str) -> None:
         return
     recent_seeds = state.setdefault("recent_seeds", {"jokes": [], "musings": [], "trivia": []})
     recent_outputs = state.setdefault("recent_outputs", {"jokes": [], "musings": [], "trivia": []})
+    limit = int(state.get("recent_limit", DEFAULT_RECENT_LIMIT))
     if seed:
         arr = recent_seeds.setdefault(category, [])
         arr.insert(0, seed)
-        del arr[RECENT_LIMIT:]
+        del arr[limit:]
     if message:
         arr = recent_outputs.setdefault(category, [])
         arr.insert(0, message[:200])
-        del arr[RECENT_LIMIT:]
+        del arr[limit:]
 
 
 async def fetch_calendar_events(entity_id: str, start_iso: str, end_iso: str) -> list:
@@ -805,11 +812,12 @@ async def update_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         # trim recents on save
         rec_seeds = state.get("recent_seeds", {})
         rec_outputs = state.get("recent_outputs", {})
+        limit = int(state.get("recent_limit", DEFAULT_RECENT_LIMIT))
         for key in ["jokes", "musings", "trivia"]:
             if key in rec_seeds:
-                rec_seeds[key] = rec_seeds[key][:RECENT_LIMIT]
+                rec_seeds[key] = rec_seeds[key][:limit]
             if key in rec_outputs:
-                rec_outputs[key] = rec_outputs[key][:RECENT_LIMIT]
+                rec_outputs[key] = rec_outputs[key][:limit]
         state["recent_seeds"] = rec_seeds
         state["recent_outputs"] = rec_outputs
         await persist_state()
