@@ -111,6 +111,12 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "jokes_interval_min": options.get("jokes_interval_min", 120),
         "jokes_interval_max": options.get("jokes_interval_max", 240),
         "jokes_daily_cap": options.get("jokes_daily_cap", 3),
+        "brief_enabled_morning": options.get("brief_enabled_morning", True),
+        "brief_enabled_evening": options.get("brief_enabled_evening", False),
+        "brief_time_morning": options.get("brief_time_morning", "07:45"),
+        "brief_time_evening": options.get("brief_time_evening", "21:15"),
+        "brief_morning_sent": "",
+        "brief_evening_sent": "",
     "musing_pool": options.get("musing_pool", []),
     "joke_pool": options.get("joke_pool", []),
     "trivia_pool": options.get("trivia_pool", []),
@@ -436,7 +442,52 @@ async def build_quick_context(category: str, excluded_seeds: Optional[List[str]]
         return ("Share the current vacuum status in one sentence.", "vacuum", None)
     if cat == "system":
         return ("System check-in and recent notable events in one sentence.", "system", None)
+    if cat == "brief":
+        summary = await build_brief()
+        return (summary, "brief", None)
     return (f"Share a quick {cat} update in one sentence.", cat, None)
+
+
+async def build_brief() -> str:
+    pieces = []
+    # Weather summary
+    payload = state.get("last_weather_payload", {}) or await poll_weather_entity() or {}
+    cond = payload.get("condition", "?")
+    temp = payload.get("temperature", "?")
+    pieces.append(f"Weather: {cond} at {temp}°.")
+    # Calendar summary
+    try:
+        token = os.getenv("SUPERVISOR_TOKEN")
+        cals = state.get("calendar_entities", []) or []
+        cal_snips = []
+        if token and cals:
+            now_utc = datetime.now(timezone.utc)
+            end_utc = now_utc + timedelta(hours=36)
+            for ent in cals[:5]:
+                events = await fetch_calendar_events(ent, now_utc.isoformat(), end_utc.isoformat())
+                if events:
+                    ev = events[0]
+                    title = ev.get("summary") or ev.get("title") or "Event"
+                    start_ts = parse_iso_ts(ev.get("start"))
+                    if start_ts:
+                        tstr = datetime.fromtimestamp(start_ts).strftime("%I:%M%p").lower().lstrip("0")
+                        cal_snips.append(f"{title} at {tstr}")
+        if cal_snips:
+            pieces.append("Calendar: " + "; ".join(cal_snips[:3]))
+        else:
+            pieces.append("Calendar: no key events.")
+    except Exception:
+        pieces.append("Calendar: unavailable.")
+    # Unread summary
+    unread = state.get("unread_log", [])
+    if unread:
+        pieces.append(f"Unread: {len(unread)} pending.")
+    # One musing or trivia
+    pool = state.get("musing_pool") or state.get("trivia_pool") or []
+    seed = random.choice(pool) if pool else ""
+    if seed:
+        pieces.append(f"Seed: {seed}")
+    return " ".join(pieces)
 
 
 def weather_significant(previous: Dict[str, Any], current: Dict[str, Any], temp_delta_req: float, condition_change_required: bool) -> Tuple[bool, str]:
@@ -614,6 +665,7 @@ async def startup() -> None:
     asyncio.create_task(scheduled_loop("musings"))
     asyncio.create_task(scheduled_loop("jokes"))
     asyncio.create_task(scheduled_loop("trivia"))
+    asyncio.create_task(brief_loop())
     asyncio.create_task(weather_poll_loop())
     asyncio.create_task(calendar_poll_loop())
     asyncio.create_task(arrival_pending_loop())
@@ -1233,6 +1285,52 @@ async def poll_weather_entity() -> Optional[Dict[str, Any]]:
     except Exception as err:
         print(f"[charles] weather poll failed: {err}")
         return None
+
+
+async def brief_loop() -> None:
+    while True:
+        try:
+            now = time.localtime()
+            today = time.strftime("%Y-%m-%d", now)
+            async with state_lock:
+                enabled_m = bool(state.get("brief_enabled_morning", True))
+                enabled_e = bool(state.get("brief_enabled_evening", False))
+                tm = state.get("brief_time_morning", "07:45") or "07:45"
+                te = state.get("brief_time_evening", "21:15") or "21:15"
+                sent_m = state.get("brief_morning_sent", "")
+                sent_e = state.get("brief_evening_sent", "")
+            def minutes(val: str) -> int:
+                try:
+                    h, m = [int(x) for x in val.split(":")]
+                    return h*60+m
+                except Exception:
+                    return 0
+            now_min = now.tm_hour*60 + now.tm_min
+            tasks = []
+            if enabled_m and sent_m != today and now_min >= minutes(tm):
+                tasks.append("morning")
+            if enabled_e and sent_e != today and now_min >= minutes(te):
+                tasks.append("evening")
+            for which in tasks:
+                brief = await build_brief()
+                res = await process_emit(
+                    topic="brief",
+                    category="brief",
+                    context=brief,
+                    route_raw="default",
+                    conversation_id=f"charles_brief_{which}",
+                )
+                if res.get("status") != "throttled":
+                    async with state_lock:
+                        if which == "morning":
+                            state["brief_morning_sent"] = today
+                        else:
+                            state["brief_evening_sent"] = today
+                        await persist_state()
+            await asyncio.sleep(60)
+        except Exception as err:
+            print(f"[charles] brief loop error: {err}")
+            await asyncio.sleep(120)
 
 
 async def weather_poll_loop() -> None:
