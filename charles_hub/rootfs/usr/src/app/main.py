@@ -119,6 +119,10 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "brief_time_evening": options.get("brief_time_evening", "21:15"),
         "brief_morning_sent": "",
         "brief_evening_sent": "",
+        "brief_include_weather": options.get("brief_include_weather", True),
+        "brief_include_calendar": options.get("brief_include_calendar", True),
+        "brief_include_unread": options.get("brief_include_unread", True),
+        "brief_seed_source": options.get("brief_seed_source", "musing"),
     "musing_pool": options.get("musing_pool", []),
     "joke_pool": options.get("joke_pool", []),
     "trivia_pool": options.get("trivia_pool", []),
@@ -305,9 +309,12 @@ def build_notify_summary(current: str, existing_unread: List[str]) -> str:
     entries = [current] + (existing_unread or [])
     entries = [e for e in entries if e][:5]
     if len(entries) == 1:
-        return entries[0]
+        out = entries[0]
     parts = [f"{idx+1}) {txt}" for idx, txt in enumerate(entries)]
-    return f"{len(entries)} updates: " + " | ".join(parts)
+    out = f"{len(entries)} updates: " + " | ".join(parts)
+    if len(out) > 240:
+        out = out[:237] + "..."
+    return out
 
 
 def parse_time_str(val: str) -> Optional[int]:
@@ -452,41 +459,53 @@ async def build_quick_context(category: str, excluded_seeds: Optional[List[str]]
 
 async def build_brief() -> str:
     pieces = []
-    # Weather summary
-    payload = state.get("last_weather_payload", {}) or await poll_weather_entity() or {}
-    cond = payload.get("condition", "?")
-    temp = payload.get("temperature", "?")
-    pieces.append(f"Weather: {cond} at {temp}°.")
-    # Calendar summary
-    try:
-        token = os.getenv("SUPERVISOR_TOKEN")
-        cals = state.get("calendar_entities", []) or []
-        cal_snips = []
-        if token and cals:
-            now_utc = datetime.now(timezone.utc)
-            end_utc = now_utc + timedelta(hours=36)
-            for ent in cals[:5]:
-                events = await fetch_calendar_events(ent, now_utc.isoformat(), end_utc.isoformat())
-                if events:
-                    ev = events[0]
-                    title = ev.get("summary") or ev.get("title") or "Event"
-                    start_ts = parse_iso_ts(ev.get("start"))
-                    if start_ts:
-                        tstr = datetime.fromtimestamp(start_ts).strftime("%I:%M%p").lower().lstrip("0")
-                        cal_snips.append(f"{title} at {tstr}")
-        if cal_snips:
-            pieces.append("Calendar: " + "; ".join(cal_snips[:3]))
-        else:
-            pieces.append("Calendar: no key events.")
-    except Exception:
-        pieces.append("Calendar: unavailable.")
-    # Unread summary
-    unread = state.get("unread_log", [])
-    if unread:
-        pieces.append(f"Unread: {len(unread)} pending.")
-    # One musing or trivia
-    pool = state.get("musing_pool") or state.get("trivia_pool") or []
-    seed = random.choice(pool) if pool else ""
+    include_weather = bool(state.get("brief_include_weather", True))
+    include_calendar = bool(state.get("brief_include_calendar", True))
+    include_unread = bool(state.get("brief_include_unread", True))
+    seed_source = state.get("brief_seed_source", "musing")
+
+    if include_weather:
+        payload = state.get("last_weather_payload", {}) or await poll_weather_entity() or {}
+        cond = payload.get("condition", "?")
+        temp = payload.get("temperature", "?")
+        pieces.append(f"Weather: {cond} at {temp}°.")
+    if include_calendar:
+        try:
+            token = os.getenv("SUPERVISOR_TOKEN")
+            cals = state.get("calendar_entities", []) or []
+            cal_snips = []
+            if token and cals:
+                now_utc = datetime.now(timezone.utc)
+                end_utc = now_utc + timedelta(hours=36)
+                for ent in cals[:5]:
+                    events = await fetch_calendar_events(ent, now_utc.isoformat(), end_utc.isoformat())
+                    if events:
+                        ev = events[0]
+                        title = ev.get("summary") or ev.get("title") or "Event"
+                        start_ts = parse_iso_ts(ev.get("start"))
+                        if start_ts:
+                            tstr = datetime.fromtimestamp(start_ts).strftime("%I:%M%p").lower().lstrip("0")
+                            cal_snips.append(f"{title} at {tstr}")
+            if cal_snips:
+                pieces.append("Calendar: " + "; ".join(cal_snips[:3]))
+            else:
+                pieces.append("Calendar: no key events.")
+        except Exception:
+            pieces.append("Calendar: unavailable.")
+    if include_unread:
+        unread = state.get("unread_log", [])
+        if unread:
+            pieces.append(f"Unread: {len(unread)} pending.")
+
+    seed = ""
+    if seed_source in {"musing", "both"}:
+        pool = state.get("musing_pool") or []
+        if pool:
+            seed = random.choice(pool)
+    if not seed and seed_source in {"trivia", "both"}:
+        pool = state.get("trivia_pool") or []
+        if pool:
+            seed = random.choice(pool)
     if seed:
         pieces.append(f"Seed: {seed}")
     return " ".join(pieces)
@@ -1346,7 +1365,7 @@ async def weather_poll_loop() -> None:
                     topic="weather",
                     category="weather",
                     context=context,
-                    route_raw="default",
+                    route_raw="feed",
                     conversation_id="charles_weather_poll",
                     weather_payload=payload,
                 )
