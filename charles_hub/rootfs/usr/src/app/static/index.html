@@ -290,6 +290,9 @@
           <h2>Domains</h2>
         </div>
         <div class="card-body" id="body-domains">
+      <!-- Hidden legacy arrivals toggles to keep state compatibility -->
+      <input type="checkbox" id="cat_arrivals" style="display:none;" checked>
+      <input type="checkbox" id="feed_arrivals" style="display:none;" checked>
       <label style="margin-bottom:4px;">Categories</label>
       <div class="table-wrap">
       <table>
@@ -638,31 +641,36 @@
     }
 
     function collectState() {
+      const checkedOr = (id, fallback=true) => {
+        const el = document.getElementById(id);
+        if (el && typeof el.checked === 'boolean') return el.checked;
+        return fallback;
+      };
       const categories = {
-        weather: document.getElementById('cat_weather').checked,
-        trivia: document.getElementById('cat_trivia').checked,
-        calendar: document.getElementById('cat_calendar').checked,
-        system: document.getElementById('cat_system').checked,
-        vacuum: document.getElementById('cat_vacuum').checked,
-        lighting: document.getElementById('cat_lighting').checked,
-        arrivals: document.getElementById('cat_arrivals').checked,
-        people: document.getElementById('cat_people').checked,
-        musings: document.getElementById('cat_musings').checked,
-        jokes: document.getElementById('cat_jokes').checked,
-        brief: document.getElementById('cat_brief').checked
+        weather: checkedOr('cat_weather'),
+        trivia: checkedOr('cat_trivia'),
+        calendar: checkedOr('cat_calendar'),
+        system: checkedOr('cat_system'),
+        vacuum: checkedOr('cat_vacuum'),
+        lighting: checkedOr('cat_lighting'),
+        arrivals: checkedOr('cat_arrivals'),
+        people: checkedOr('cat_people'),
+        musings: checkedOr('cat_musings'),
+        jokes: checkedOr('cat_jokes'),
+        brief: checkedOr('cat_brief')
       };
       const feed_categories = {
-        weather: document.getElementById('feed_weather').checked,
-        trivia: document.getElementById('feed_trivia').checked,
-        calendar: document.getElementById('feed_calendar').checked,
-        system: document.getElementById('feed_system').checked,
-        vacuum: document.getElementById('feed_vacuum').checked,
-        lighting: document.getElementById('feed_lighting').checked,
-        arrivals: document.getElementById('feed_arrivals').checked,
-        people: document.getElementById('feed_people').checked,
-        musings: document.getElementById('feed_musings').checked,
-        jokes: document.getElementById('feed_jokes').checked,
-        brief: document.getElementById('feed_brief').checked
+        weather: checkedOr('feed_weather'),
+        trivia: checkedOr('feed_trivia'),
+        calendar: checkedOr('feed_calendar'),
+        system: checkedOr('feed_system'),
+        vacuum: checkedOr('feed_vacuum'),
+        lighting: checkedOr('feed_lighting'),
+        arrivals: checkedOr('feed_arrivals'),
+        people: checkedOr('feed_people'),
+        musings: checkedOr('feed_musings'),
+        jokes: checkedOr('feed_jokes'),
+        brief: checkedOr('feed_brief')
       };
       return {
         persona_prompt: document.getElementById('persona').value.trim(),
