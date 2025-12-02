@@ -386,7 +386,25 @@
               <div class="note">Delay buffers arrivals to avoid drive-through noise; combine merges arrivals to same location within window.</div>
             </td>
           </tr>
-          <tr><td><span class="cat-label cat-offset">People</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-people" onclick="pauseCategory('people',60)">Pause</button></td></tr>
+          <tr><td><button class="ghost-btn" id="btn-people" onclick="toggleDetails('people')">▾</button><span class="cat-label">People</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_people"></td><td class="checkbox-cell"><input type="checkbox" id="feed_people"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('people')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-people" onclick="pauseCategory('people',60)">Pause</button></td></tr>
+          <tr id="row-people" class="detail-row" style="display:none;">
+            <td colspan="5">
+              <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:8px;">
+                <div><label for="people_min">Min (min)</label><input type="number" id="people_min" min="1" step="5"></div>
+                <div><label for="people_max">Max (min)</label><input type="number" id="people_max" min="1" step="5"></div>
+                <div><label for="people_cap">Daily cap</label><input type="number" id="people_cap" min="0" step="1"></div>
+              </div>
+              <label for="people_entities" style="margin-top:8px;">People entities (one per line)</label>
+              <textarea id="people_entities" placeholder="person.jared&#10;person.laurie"></textarea>
+              <div style="margin-top:6px;">
+                <label>Available people</label>
+                <select id="people_entity_select" multiple style="min-height:80px;"></select>
+                <button class="secondary" onclick="loadEntities('person')">Refresh</button>
+                <div class="note" id="people-entity-status"></div>
+              </div>
+              <div class="note">Presence updates summarize home/away for selected people. Leave list empty to include all persons.</div>
+            </td>
+          </tr>
           <tr>
             <td><button class="ghost-btn" id="btn-musings" onclick="toggleDetails('musings')">▾</button><span class="cat-label">Musings</span></td><td class="checkbox-cell"><input type="checkbox" id="cat_musings"></td><td class="checkbox-cell"><input type="checkbox" id="feed_musings"></td><td class="checkbox-cell"><button class="secondary" onclick="quickEmit('musings')">▶</button></td><td class="checkbox-cell"><button class="secondary" id="pause-musings" onclick="pauseCategory('musings',60)">Pause</button></td>
           </tr>
@@ -583,6 +601,16 @@
           Array.from(calSel.options).forEach((opt) => { opt.selected = selected.includes(opt.value); });
           calSel.onchange = syncCalendarSelection;
         }
+        const pplTxt = document.getElementById('people_entities'); if (pplTxt) pplTxt.value = (st.people_entities || []).join('\\n');
+        const pplSel = document.getElementById('people_entity_select');
+        if (pplSel) {
+          const selectedP = (st.people_entities || []);
+          Array.from(pplSel.options).forEach((opt) => { opt.selected = selectedP.includes(opt.value); });
+          pplSel.onchange = syncPeopleSelection;
+        }
+        (document.getElementById('people_min') || {}).value = st.people_interval_min ?? 120;
+        (document.getElementById('people_max') || {}).value = st.people_interval_max ?? 360;
+        (document.getElementById('people_cap') || {}).value = st.people_daily_cap ?? 4;
         const ad = document.getElementById('arrival_delay'); if (ad) ad.value = st.arrival_emit_delay ?? 0;
         const ac = document.getElementById('arrival_combine'); if (ac) ac.value = st.arrival_combine_window ?? 300;
         const um = document.getElementById('unread-meta'); if (um) um.textContent = `Unread: ${st.unread_count ?? 0}`;
@@ -670,12 +698,16 @@
         trivia_urls: document.getElementById('trivia_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
         news_urls: document.getElementById('news_urls').value.split('\\n').map(v => v.trim()).filter(Boolean),
         calendar_entities: document.getElementById('calendar_entities').value.split('\\n').map(v => v.trim()).filter(Boolean),
+        people_entities: document.getElementById('people_entities').value.split('\\n').map(v => v.trim()).filter(Boolean),
         musings_interval_min: Number(document.getElementById('musing_min').value) || 0,
         musings_interval_max: Number(document.getElementById('musing_max').value) || 0,
         musings_daily_cap: Number(document.getElementById('musing_cap').value) || 0,
         jokes_interval_min: Number(document.getElementById('joke_min').value) || 0,
         jokes_interval_max: Number(document.getElementById('joke_max').value) || 0,
-        jokes_daily_cap: Number(document.getElementById('joke_cap').value) || 0
+        jokes_daily_cap: Number(document.getElementById('joke_cap').value) || 0,
+        people_interval_min: Number(document.getElementById('people_min').value) || 0,
+        people_interval_max: Number(document.getElementById('people_max').value) || 0,
+        people_daily_cap: Number(document.getElementById('people_cap').value) || 0
       };
     }
 
@@ -770,7 +802,8 @@
         const nextM = data.next_musing_time ? new Date(data.next_musing_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         const nextJ = data.next_joke_time ? new Date(data.next_joke_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         const nextT = data.next_trivia_time ? new Date(data.next_trivia_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
-        document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ} | Next trivia: ${nextT}`;
+        const nextP = data.next_people_time ? new Date(data.next_people_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
+        document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ} | Next trivia: ${nextT} | Next people: ${nextP}`;
         const cal = data.last_calendar_poll ? new Date(data.last_calendar_poll * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         document.getElementById('health-calendar').textContent = `Last calendar poll: ${cal}`;
         const wTs = data.last_weather_time ? new Date(data.last_weather_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
@@ -983,13 +1016,29 @@
       txt.value = selected.join('\\n');
     }
 
+    function syncPeopleSelection() {
+      const sel = document.getElementById('people_entity_select');
+      const txt = document.getElementById('people_entities');
+      if (!sel || !txt) return;
+      const selected = Array.from(sel.selectedOptions || []).map((opt) => opt.value.trim()).filter(Boolean);
+      txt.value = selected.join('\\n');
+    }
+
     async function loadEntities(domain) {
       try {
         const res = await api(`api/entities/${domain}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Fetch failed');
-        const sel = domain === 'weather' ? document.getElementById('weather_entity_select') : document.getElementById('calendar_entity_select');
-        const statusEl = domain === 'weather' ? document.getElementById('weather-entity-status') : document.getElementById('calendar-entity-status');
+        const sel = domain === 'weather'
+          ? document.getElementById('weather_entity_select')
+          : domain === 'calendar'
+            ? document.getElementById('calendar_entity_select')
+            : document.getElementById('people_entity_select');
+        const statusEl = domain === 'weather'
+          ? document.getElementById('weather-entity-status')
+          : domain === 'calendar'
+            ? document.getElementById('calendar-entity-status')
+            : document.getElementById('people-entity-status');
         if (!sel) return;
         sel.innerHTML = '';
         (data.entities || []).forEach((item) => {
@@ -1002,6 +1051,11 @@
           const desired = (document.getElementById('calendar_entities')?.value || '').split('\\n').map(v => v.trim()).filter(Boolean);
           Array.from(sel.options).forEach(opt => { opt.selected = desired.includes(opt.value); });
           syncCalendarSelection();
+        }
+        if (domain === 'person') {
+          const desired = (document.getElementById('people_entities')?.value || '').split('\\n').map(v => v.trim()).filter(Boolean);
+          Array.from(sel.options).forEach(opt => { opt.selected = desired.includes(opt.value); });
+          syncPeopleSelection();
         }
         if (domain === 'weather') {
           const ent = document.getElementById('weather_entity')?.value || '';

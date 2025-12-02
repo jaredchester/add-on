@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.39")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.40")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -100,11 +100,11 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "calendar_entities": options.get("calendar_entities", []),
     "calendar_lead_minutes": options.get("calendar_lead_minutes", 60),
     "calendar_poll_interval": options.get("calendar_poll_interval", 300),
-    "calendar_morning_enabled": options.get("calendar_morning_enabled", True),
-    "calendar_morning_time": options.get("calendar_morning_time", "07:30"),
-    "calendar_evening_enabled": options.get("calendar_evening_enabled", False),
-    "calendar_evening_time": options.get("calendar_evening_time", "21:00"),
-    "calendar_announced": options.get("calendar_announced", []),
+        "calendar_morning_enabled": options.get("calendar_morning_enabled", True),
+        "calendar_morning_time": options.get("calendar_morning_time", "07:30"),
+        "calendar_evening_enabled": options.get("calendar_evening_enabled", False),
+        "calendar_evening_time": options.get("calendar_evening_time", "21:00"),
+        "calendar_announced": options.get("calendar_announced", []),
     "last_calendar_poll": 0.0,
     "last_morning_date": "",
     "last_evening_date": "",
@@ -151,6 +151,14 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "next_musing_time": 0.0,
         "next_joke_time": 0.0,
         "next_trivia_time": 0.0,
+        "people_interval_min": options.get("people_interval_min", 120),
+        "people_interval_max": options.get("people_interval_max", 360),
+        "people_daily_cap": options.get("people_daily_cap", 4),
+        "people_entities": options.get("people_entities", []),
+        "next_people_time": 0.0,
+        "last_people_time": 0.0,
+        "people_count_date": "",
+        "people_count_today": 0,
         "arrival_groups": {},
         "arrival_pending": {},
         "last_entry_key": "",
@@ -327,6 +335,42 @@ def build_notify_summary(current: str, existing_unread: List[str]) -> str:
     return out
 
 
+async def build_people_context() -> str:
+    token = os.getenv("SUPERVISOR_TOKEN")
+    entities = state.get("people_entities", []) or []
+    try:
+        people: List[Dict[str, Any]] = []
+        if token:
+            url = "http://supervisor/core/api/states"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+                res.raise_for_status()
+                data = res.json()
+                for item in data:
+                    ent_id = str(item.get("entity_id", ""))
+                    if not ent_id.startswith("person."):
+                        continue
+                    if entities and ent_id not in entities:
+                        continue
+                    name = item.get("attributes", {}).get("friendly_name") or ent_id
+                    state_val = item.get("state", "unknown")
+                    last_changed = item.get("last_changed")
+                    people.append({"name": name, "state": state_val, "last_changed": last_changed})
+        if not people:
+            return "Share a quick household presence update in one sentence."
+        home = [p["name"] for p in people if p["state"] == "home"]
+        away = [p["name"] for p in people if p["state"] != "home"]
+        parts = []
+        if home:
+            parts.append("Home: " + ", ".join(home))
+        if away:
+            parts.append("Away: " + ", ".join(away))
+        return "; ".join(parts) if parts else "Presence update: no data."
+    except Exception as err:
+        print(f"[charles] people context failed: {err}")
+        return "Share a quick household presence update in one sentence."
+
+
 def parse_time_str(val: str) -> Optional[int]:
     try:
         hh, mm = [int(x) for x in val.split(":")]
@@ -456,7 +500,8 @@ async def build_quick_context(category: str, excluded_seeds: Optional[List[str]]
     if cat == "arrivals":
         return ("Share the latest arrival/departure update in one sentence.", "arrivals", None)
     if cat == "people":
-        return ("Share a brief status update about the household in one sentence.", "people", None)
+        ctx = await build_people_context()
+        return (ctx, "people", None)
     if cat == "vacuum":
         return ("Share the current vacuum status in one sentence.", "vacuum", None)
     if cat == "system":
@@ -696,6 +741,7 @@ async def startup() -> None:
     asyncio.create_task(scheduled_loop("musings"))
     asyncio.create_task(scheduled_loop("jokes"))
     asyncio.create_task(scheduled_loop("trivia"))
+    asyncio.create_task(scheduled_people_loop())
     asyncio.create_task(brief_loop())
     asyncio.create_task(weather_poll_loop())
     asyncio.create_task(calendar_poll_loop())
@@ -721,6 +767,7 @@ async def health() -> Dict[str, Any]:
             "next_musing_time": state.get("next_musing_time", 0),
             "next_joke_time": state.get("next_joke_time", 0),
             "next_trivia_time": state.get("next_trivia_time", 0),
+            "next_people_time": state.get("next_people_time", 0),
             "last_calendar_poll": state.get("last_calendar_poll", 0),
             "last_weather_time": state.get("last_weather_time", 0),
             "last_weather_payload": state.get("last_weather_payload", {}),
@@ -1139,8 +1186,8 @@ async def pause(payload: Dict[str, Any]) -> Dict[str, Any]:
 @app.get("/api/entities/{domain}")
 async def list_entities(domain: str) -> Dict[str, Any]:
     domain = domain.lower()
-    if domain not in {"weather", "calendar"}:
-        raise HTTPException(status_code=400, detail="domain must be weather or calendar")
+    if domain not in {"weather", "calendar", "person"}:
+        raise HTTPException(status_code=400, detail="domain must be weather, calendar, or person")
     token = os.getenv("SUPERVISOR_TOKEN")
     if not token:
         raise HTTPException(status_code=500, detail="Missing supervisor token")
@@ -1321,6 +1368,55 @@ async def scheduled_loop(kind: str) -> None:
                     await persist_state()
         except Exception as err:
             print(f"[charles] scheduler error ({kind}): {err}")
+            await asyncio.sleep(60)
+
+
+async def scheduled_people_loop() -> None:
+    while True:
+        try:
+            async with state_lock:
+                interval_min = int(state.get("people_interval_min", 120))
+                interval_max = int(state.get("people_interval_max", max(interval_min, 120)))
+            delay_minutes = random.randint(interval_min, max(interval_min, interval_max)) if interval_min > 0 else 120
+            next_fire = time.time() + (delay_minutes * 60)
+            async with state_lock:
+                state["next_people_time"] = next_fire
+                await persist_state()
+            await asyncio.sleep(delay_minutes * 60)
+
+            async with state_lock:
+                enabled_feed = state.get("feed_enabled", True)
+                enabled_notify = state.get("notifications_enabled", True)
+                category_allowed_flag = category_allowed("people")
+                feed_allowed_flag = feed_category_allowed("people")
+                if (not enabled_feed and not enabled_notify) or (not category_allowed_flag and not feed_allowed_flag):
+                    continue
+
+                today = time.strftime("%Y-%m-%d", time.localtime())
+                cap = int(state.get("people_daily_cap", 0))
+                if state.get("people_count_date") != today:
+                    state["people_count_date"] = today
+                    state["people_count_today"] = 0
+                if cap > 0 and state.get("people_count_today", 0) >= cap:
+                    continue
+
+            ctx = await build_people_context()
+            result = await process_emit(
+                topic="people",
+                category="people",
+                context=ctx,
+                route_raw="default",
+                conversation_id="charles_people",
+            )
+            if result.get("status") != "throttled":
+                async with state_lock:
+                    state["people_count_today"] = state.get("people_count_today", 0) + 1
+                    now_val = time.time()
+                    state["last_people_time"] = now_val
+                    state["next_people_time"] = now_val + (delay_minutes * 60)
+                    await persist_state()
+        except Exception as err:
+            print(f"[charles] scheduler error (people): {err}")
             await asyncio.sleep(60)
 async def poll_weather_entity() -> Optional[Dict[str, Any]]:
     token = os.getenv("SUPERVISOR_TOKEN")
