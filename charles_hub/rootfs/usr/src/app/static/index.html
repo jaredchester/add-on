@@ -282,9 +282,9 @@
                 <div><label for="weather_delta">Temp delta (°)</label><input type="number" id="weather_delta" min="0" step="1"></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_condition"><label for="weather_condition">Only on condition change</label></div>
                 <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="weather_feed_only_minor"><label for="weather_feed_only_minor">Minor changes: feed only</label></div>
-                <div><label for="weather_entity">Weather entity</label><input type="text" id="weather_entity" placeholder="weather.home"></div>
+                <div><label for="weather_entity">Weather entity <span class="note-inline">(used for polling)</span></label><input type="text" id="weather_entity" placeholder="weather.home"></div>
                 <div><label for="weather_poll">Poll every (sec)</label><input type="number" id="weather_poll" min="60" step="30"></div>
-                <div><label>Available weather entities</label><select id="weather_entity_select"></select><button class="secondary" onclick="loadEntities('weather')">Refresh</button></div>
+                <div><label>Available weather entities</label><select id="weather_entity_select"></select><button class="secondary" onclick="loadEntities('weather')">Refresh</button><div class="note" id="weather-entity-status"></div></div>
               </div>
             </td>
           </tr>
@@ -305,6 +305,7 @@
                 <label>Available calendar entities</label>
                 <select id="calendar_entity_select" multiple style="min-height:80px;"></select>
                 <button class="secondary" onclick="loadEntities('calendar')">Refresh</button>
+                <div class="note" id="calendar-entity-status"></div>
               </div>
             </td>
           </tr>
@@ -818,6 +819,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Fetch failed');
         const sel = domain === 'weather' ? document.getElementById('weather_entity_select') : document.getElementById('calendar_entity_select');
+        const statusEl = domain === 'weather' ? document.getElementById('weather-entity-status') : document.getElementById('calendar-entity-status');
         if (!sel) return;
         sel.innerHTML = '';
         (data.entities || []).forEach((item) => {
@@ -826,6 +828,7 @@
           opt.textContent = item.name ? `${item.name} (${item.entity_id})` : item.entity_id;
           sel.appendChild(opt);
         });
+        if (statusEl) statusEl.textContent = `Loaded ${data.entities?.length || 0} ${domain} entities.`;
         setStatus(`Loaded ${data.entities?.length || 0} ${domain} entities.`);
       } catch (err) {
         console.error(err);
