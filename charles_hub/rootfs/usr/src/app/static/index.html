@@ -1053,6 +1053,15 @@
       }
     }
 
+    function updateQuietNote() {
+      const qNote = document.getElementById('quiet-note');
+      if (!qNote) return;
+      const start = document.getElementById('quiet_start')?.value || '22:00';
+      const end = document.getElementById('quiet_end')?.value || '07:00';
+      const suppress = document.getElementById('quiet_feed_suppress')?.checked;
+      qNote.textContent = `Quiet hours: ${start} – ${end}. ${suppress ? 'Feed will be suppressed during quiet hours.' : 'Notifications are suppressed; feed stays on.'}`;
+    }
+
     function syncCalendarSelection() {
       const sel = document.getElementById('calendar_entity_select');
       const txt = document.getElementById('calendar_entities');
