@@ -812,8 +812,95 @@ async def get_state() -> Dict[str, Any]:
 @app.post("/api/state")
 async def update_state(payload: Dict[str, Any]) -> Dict[str, Any]:
     async with state_lock:
-        for k, v in payload.items():
-            state[k] = v
+        # merge incoming payload with type safety and defaults
+        cats_in = payload.get("categories") or {}
+        feed_in = payload.get("feed_categories") or {}
+        all_cats = ["weather","trivia","calendar","system","vacuum","lighting","arrivals","people","musings","jokes","brief"]
+        state["categories"] = {c: bool(cats_in.get(c, state.get("categories", {}).get(c, True))) for c in all_cats}
+        state["feed_categories"] = {c: bool(feed_in.get(c, state.get("feed_categories", {}).get(c, True))) for c in all_cats}
+
+        def intval(key: str, default: int) -> int:
+            try:
+                return int(payload.get(key, state.get(key, default)) or 0)
+            except Exception:
+                return default
+
+        def floatval(key: str, default: float) -> float:
+            try:
+                return float(payload.get(key, state.get(key, default)) or 0)
+            except Exception:
+                return default
+
+        state["persona_prompt"] = payload.get("persona_prompt", state.get("persona_prompt", DEFAULT_PROMPT))
+        state["route_default"] = payload.get("route_default", state.get("route_default", "both"))
+        state["throttle_seconds"] = intval("throttle_seconds", 0)
+        state["feed_enabled"] = bool(payload.get("feed_enabled", state.get("feed_enabled", True)))
+        state["notifications_enabled"] = bool(payload.get("notifications_enabled", state.get("notifications_enabled", True)))
+        state["notify_service"] = payload.get("notify_service", state.get("notify_service", "notify.mobile_app_pixel_9"))
+        state["notify_tag"] = payload.get("notify_tag", state.get("notify_tag", "charles_stream"))
+        state["notify_title"] = payload.get("notify_title", state.get("notify_title", "CHARLES says"))
+        state["notify_cap_chars"] = intval("notify_cap_chars", 240) or 240
+        caps_in = payload.get("notify_caps") or state.get("notify_caps") or {}
+        clean_caps = {}
+        for key, val in caps_in.items():
+            try:
+                ival = int(val)
+                if ival > 0:
+                    clean_caps[key] = ival
+            except Exception:
+                continue
+        state["notify_caps"] = clean_caps
+        state["conversation_agent_id"] = payload.get("conversation_agent_id", state.get("conversation_agent_id", "conversation.openai_conversation"))
+        state["quiet_hours_start"] = payload.get("quiet_hours_start", state.get("quiet_hours_start", "22:00"))
+        state["quiet_hours_end"] = payload.get("quiet_hours_end", state.get("quiet_hours_end", "07:00"))
+        state["quiet_feed_suppress"] = bool(payload.get("quiet_feed_suppress", state.get("quiet_feed_suppress", False)))
+        state["weather_min_gap"] = intval("weather_min_gap", 0)
+        state["weather_temp_delta"] = floatval("weather_temp_delta", 5)
+        state["weather_condition_change"] = bool(payload.get("weather_condition_change", state.get("weather_condition_change", True)))
+        state["weather_feed_only_minor"] = bool(payload.get("weather_feed_only_minor", state.get("weather_feed_only_minor", False)))
+        state["weather_entity"] = payload.get("weather_entity", state.get("weather_entity", "weather.home"))
+        state["weather_poll_interval"] = intval("weather_poll_interval", 300)
+        state["weather_poll_route"] = payload.get("weather_poll_route", state.get("weather_poll_route", "feed"))
+        state["trivia_interval_min"] = intval("trivia_interval_min", 0)
+        state["trivia_interval_max"] = intval("trivia_interval_max", 0)
+        state["trivia_daily_cap"] = intval("trivia_daily_cap", 0)
+        state["arrival_emit_delay"] = intval("arrival_emit_delay", 0)
+        state["arrival_combine_window"] = intval("arrival_combine_window", 300)
+        state["brief_enabled_morning"] = bool(payload.get("brief_enabled_morning", state.get("brief_enabled_morning", True)))
+        state["brief_enabled_evening"] = bool(payload.get("brief_enabled_evening", state.get("brief_enabled_evening", False)))
+        state["brief_time_morning"] = payload.get("brief_time_morning", state.get("brief_time_morning", "07:45"))
+        state["brief_time_evening"] = payload.get("brief_time_evening", state.get("brief_time_evening", "21:15"))
+        state["brief_include_weather"] = bool(payload.get("brief_include_weather", state.get("brief_include_weather", True)))
+        state["brief_include_calendar"] = bool(payload.get("brief_include_calendar", state.get("brief_include_calendar", True)))
+        state["brief_include_unread"] = bool(payload.get("brief_include_unread", state.get("brief_include_unread", True)))
+        state["brief_seed_source"] = payload.get("brief_seed_source", state.get("brief_seed_source", "musing"))
+        state["calendar_lead_minutes"] = intval("calendar_lead_minutes", 60)
+        state["calendar_poll_interval"] = intval("calendar_poll_interval", 300)
+        state["calendar_morning_enabled"] = bool(payload.get("calendar_morning_enabled", state.get("calendar_morning_enabled", True)))
+        state["calendar_morning_time"] = payload.get("calendar_morning_time", state.get("calendar_morning_time", "07:30"))
+        state["calendar_evening_enabled"] = bool(payload.get("calendar_evening_enabled", state.get("calendar_evening_enabled", False)))
+        state["calendar_evening_time"] = payload.get("calendar_evening_time", state.get("calendar_evening_time", "21:00"))
+        state["musing_pool"] = payload.get("musing_pool", state.get("musing_pool", []))
+        state["joke_pool"] = payload.get("joke_pool", state.get("joke_pool", []))
+        state["trivia_pool"] = payload.get("trivia_pool", state.get("trivia_pool", []))
+        state["trivia_urls"] = payload.get("trivia_urls", state.get("trivia_urls", []))
+        state["news_urls"] = payload.get("news_urls", state.get("news_urls", []))
+        state["calendar_entities"] = payload.get("calendar_entities", state.get("calendar_entities", []))
+        state["people_entities"] = payload.get("people_entities", state.get("people_entities", []))
+        state["presence_zones"] = payload.get("presence_zones", state.get("presence_zones", []))
+        state["presence_poll_interval"] = intval("presence_poll_interval", 60)
+        state["presence_auto_arrivals"] = bool(payload.get("presence_auto_arrivals", state.get("presence_auto_arrivals", True)))
+        state["musings_interval_min"] = intval("musings_interval_min", 0)
+        state["musings_interval_max"] = intval("musings_interval_max", 0)
+        state["musings_daily_cap"] = intval("musings_daily_cap", 0)
+        state["jokes_interval_min"] = intval("jokes_interval_min", 0)
+        state["jokes_interval_max"] = intval("jokes_interval_max", 0)
+        state["jokes_daily_cap"] = intval("jokes_daily_cap", 0)
+        state["people_interval_min"] = intval("people_interval_min", 0)
+        state["people_interval_max"] = intval("people_interval_max", 0)
+        state["people_daily_cap"] = intval("people_daily_cap", 0)
+        state["recent_limit"] = intval("recent_limit", DEFAULT_RECENT_LIMIT) or DEFAULT_RECENT_LIMIT
+
         # trim recents on save
         rec_seeds = state.get("recent_seeds", {})
         rec_outputs = state.get("recent_outputs", {})
