@@ -329,10 +329,6 @@
               <div class="detail-box" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:8px;">
                 <div><label for="calendar_lead">Lead time (min)</label><input type="number" id="calendar_lead" min="0" step="5"></div>
                 <div><label for="calendar_poll">Poll every (sec)</label><input type="number" id="calendar_poll" min="60" step="30"></div>
-                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="calendar_morning_enabled"><label for="calendar_morning_enabled">Morning brief</label></div>
-                <div><label for="calendar_morning_time">Morning time</label><input type="time" id="calendar_morning_time" value="07:30"></div>
-                <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="calendar_evening_enabled"><label for="calendar_evening_enabled">Evening brief</label></div>
-                <div><label for="calendar_evening_time">Evening time</label><input type="time" id="calendar_evening_time" value="21:00"></div>
               </div>
               <label for="calendar_entities" style="margin-top:8px;">Calendars (entity ids, one per line)</label>
               <textarea id="calendar_entities" placeholder="calendar.family&#10;calendar.work"></textarea>
@@ -580,10 +576,6 @@
         const wr = document.getElementById('weather_poll_route'); if (wr) wr.value = st.weather_poll_route || 'feed';
         const cl = document.getElementById('calendar_lead'); if (cl) cl.value = st.calendar_lead_minutes ?? 60;
         const cp = document.getElementById('calendar_poll'); if (cp) cp.value = st.calendar_poll_interval ?? 300;
-        const cme = document.getElementById('calendar_morning_enabled'); if (cme) cme.checked = st.calendar_morning_enabled ?? true;
-        const cmt = document.getElementById('calendar_morning_time'); if (cmt) cmt.value = st.calendar_morning_time || '07:30';
-        const cee = document.getElementById('calendar_evening_enabled'); if (cee) cee.checked = st.calendar_evening_enabled ?? false;
-        const cet = document.getElementById('calendar_evening_time'); if (cet) cet.value = st.calendar_evening_time || '21:00';
         const cats = st.categories || {};
         const feedCats = st.feed_categories || {};
         ['weather','trivia','calendar','system','vacuum','lighting','arrivals','people','musings','jokes','brief'].forEach(cat => {
@@ -722,10 +714,6 @@
         brief_seed_source: document.getElementById('brief_seed_source').value || 'musing',
         calendar_lead_minutes: Number(document.getElementById('calendar_lead').value) || 0,
         calendar_poll_interval: Number(document.getElementById('calendar_poll').value) || 300,
-        calendar_morning_enabled: document.getElementById('calendar_morning_enabled').checked,
-        calendar_morning_time: document.getElementById('calendar_morning_time').value || '07:30',
-        calendar_evening_enabled: document.getElementById('calendar_evening_enabled').checked,
-        calendar_evening_time: document.getElementById('calendar_evening_time').value || '21:00',
         categories,
         feed_categories,
         musing_pool: document.getElementById('musing_pool').value.split('\\n').map(v => v.trim()).filter(Boolean),

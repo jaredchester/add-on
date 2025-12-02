@@ -106,14 +106,8 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     "calendar_entities": options.get("calendar_entities", []),
     "calendar_lead_minutes": options.get("calendar_lead_minutes", 60),
     "calendar_poll_interval": options.get("calendar_poll_interval", 300),
-        "calendar_morning_enabled": options.get("calendar_morning_enabled", True),
-        "calendar_morning_time": options.get("calendar_morning_time", "07:30"),
-        "calendar_evening_enabled": options.get("calendar_evening_enabled", False),
-        "calendar_evening_time": options.get("calendar_evening_time", "21:00"),
         "calendar_announced": options.get("calendar_announced", []),
-    "last_calendar_poll": 0.0,
-    "last_morning_date": "",
-    "last_evening_date": "",
+        "last_calendar_poll": 0.0,
     "musings_interval_min": options.get("musings_interval_min", 60),
     "musings_interval_max": options.get("musings_interval_max", 180),
     "musings_daily_cap": options.get("musings_daily_cap", 4),
@@ -653,12 +647,6 @@ async def calendar_poll_loop() -> None:
                 entities = [e.strip() for e in state.get("calendar_entities", []) if e.strip()]
                 lead = int(state.get("calendar_lead_minutes", 60))
                 announced = set(state.get("calendar_announced", []))
-                morning_enabled = bool(state.get("calendar_morning_enabled", True))
-                morning_time = parse_time_str(state.get("calendar_morning_time", "07:30") or "07:30")
-                evening_enabled = bool(state.get("calendar_evening_enabled", False))
-                evening_time = parse_time_str(state.get("calendar_evening_time", "21:00") or "21:00")
-                last_morning = state.get("last_morning_date", "")
-                last_evening = state.get("last_evening_date", "")
             if not entities:
                 await asyncio.sleep(interval)
                 continue
@@ -708,39 +696,6 @@ async def calendar_poll_loop() -> None:
                 for st, summ, ent in events_sorted[:8]:
                     parts.append(f"{format_clock(st)} — {summ} ({ent})")
                 return "; ".join(parts)
-
-            # Morning brief (today)
-            now_minutes = time.localtime(now_ts).tm_hour * 60 + time.localtime(now_ts).tm_min
-            if morning_enabled and morning_time is not None and last_morning != today and now_minutes >= morning_time:
-                summary = summarize(today_events)
-                context = summary or "No calendar events today."
-                result = await process_emit(
-                    topic="calendar",
-                    category="calendar",
-                    context=f"Today's calendar: {context}",
-                    route_raw="default",
-                    conversation_id="charles_calendar_morning",
-                )
-                if result.get("status") != "throttled":
-                    async with state_lock:
-                        state["last_morning_date"] = today
-                        await persist_state()
-
-            # Evening brief (tomorrow)
-            if evening_enabled and evening_time is not None and last_evening != today and now_minutes >= evening_time:
-                summary = summarize(tomorrow_events)
-                context = summary or "No calendar events tomorrow."
-                result = await process_emit(
-                    topic="calendar",
-                    category="calendar",
-                    context=f"Tomorrow's calendar: {context}",
-                    route_raw="default",
-                    conversation_id="charles_calendar_evening",
-                )
-                if result.get("status") != "throttled":
-                    async with state_lock:
-                        state["last_evening_date"] = today
-                        await persist_state()
 
             async with state_lock:
                 state["calendar_announced"] = list(announced)[-100:]
@@ -876,10 +831,6 @@ async def update_state(payload: Dict[str, Any]) -> Dict[str, Any]:
         state["brief_seed_source"] = payload.get("brief_seed_source", state.get("brief_seed_source", "musing"))
         state["calendar_lead_minutes"] = intval("calendar_lead_minutes", 60)
         state["calendar_poll_interval"] = intval("calendar_poll_interval", 300)
-        state["calendar_morning_enabled"] = bool(payload.get("calendar_morning_enabled", state.get("calendar_morning_enabled", True)))
-        state["calendar_morning_time"] = payload.get("calendar_morning_time", state.get("calendar_morning_time", "07:30"))
-        state["calendar_evening_enabled"] = bool(payload.get("calendar_evening_enabled", state.get("calendar_evening_enabled", False)))
-        state["calendar_evening_time"] = payload.get("calendar_evening_time", state.get("calendar_evening_time", "21:00"))
         state["musing_pool"] = payload.get("musing_pool", state.get("musing_pool", []))
         state["joke_pool"] = payload.get("joke_pool", state.get("joke_pool", []))
         state["trivia_pool"] = payload.get("trivia_pool", state.get("trivia_pool", []))
