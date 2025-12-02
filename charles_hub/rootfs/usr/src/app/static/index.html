@@ -447,7 +447,7 @@
       </div>
     </div>
   </div>
-  <div class="status" id="status">Loading…</div>
+  <div class="status" id="status" style="display:none;"></div>
 
   <script>
     let currentState = {};
@@ -456,10 +456,20 @@
       return fetch(url, opts);
     };
     const reflowGrid = () => {};
+    let statusTimer = null;
     const setStatus = (txt, ok=true) => {
       const el = document.getElementById('status');
+      if (!el) return;
       el.textContent = txt;
+      el.style.display = txt ? 'inline-block' : 'none';
       el.style.background = ok ? 'rgba(50,255,140,0.08)' : 'rgba(255,64,64,0.15)';
+      el.style.border = ok ? '1px solid var(--border)' : '1px solid #b44';
+      if (statusTimer) clearTimeout(statusTimer);
+      if (txt) {
+        statusTimer = setTimeout(() => {
+          el.style.display = 'none';
+        }, 30000);
+      }
     };
 
     function hydrate(st) {
