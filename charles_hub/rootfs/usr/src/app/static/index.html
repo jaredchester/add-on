@@ -608,8 +608,10 @@
         hydrate(currentState);
         setStatus('Ready.');
       } catch (err) {
-        console.error(err);
+        console.error('loadState error', err);
         setStatus('Failed to load state.', false);
+        currentState = currentState || {};
+        hydrate(currentState);
       }
     }
 
@@ -826,7 +828,7 @@
       const row = document.getElementById(`row-${kind}`);
       const btn = document.getElementById(`btn-${kind}`);
       if (!row) return;
-      row.style.display = row.style.display === 'none' ? '' : 'none';
+      row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
       if (btn) btn.textContent = row.style.display === 'none' ? '▼' : '▲';
       requestAnimationFrame(reflowGrid);
     }
