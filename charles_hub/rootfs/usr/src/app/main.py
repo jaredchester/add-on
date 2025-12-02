@@ -990,6 +990,23 @@ async def reload_trivia() -> Dict[str, Any]:
     return {"status": "ok", "count": len(pool), "loaded_at": time.time()}
 
 
+@app.post("/api/preview")
+async def preview(payload: Dict[str, Any]) -> Dict[str, Any]:
+    topic = payload.get("topic", "general")
+    category = payload.get("category", "system")
+    context = payload.get("context", "All systems nominal.")
+    agent_prompt = state.get("persona_prompt", DEFAULT_PROMPT)
+    agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
+    message = await call_conversation(
+        prompt=agent_prompt,
+        topic=topic,
+        context=context,
+        conversation_id=payload.get("conversation_id", "charles_preview"),
+        agent_id=agent_id,
+    )
+    return {"status": "ok", "message": message, "category": category, "topic": topic, "context": context}
+
+
 @app.post("/api/mute")
 async def mute(payload: Dict[str, Any]) -> Dict[str, Any]:
     raise HTTPException(status_code=410, detail="mute support removed")

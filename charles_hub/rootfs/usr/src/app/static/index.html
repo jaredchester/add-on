@@ -397,7 +397,11 @@
         <option value="none">none</option>
       </select>
       <div class="toggle"><input type="checkbox" id="emit_force"><label for="emit_force">Force (ignore throttles/mute)</label></div>
-      <button onclick="emit()">Send emit</button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button onclick="emit()">Send emit</button>
+        <button class="secondary" onclick="preview()">Preview</button>
+      </div>
+      <div class="note" id="preview-output"></div>
         </div>
       </div>
     </div>
@@ -726,6 +730,29 @@
       } catch (err) {
         console.error(err);
         setStatus('Emit failed.', false);
+      }
+    }
+
+    async function preview() {
+      const payload = {
+        topic: document.getElementById('emit_topic').value.trim() || 'general',
+        category: document.getElementById('emit_category').value.trim() || 'system',
+        context: document.getElementById('emit_context').value.trim() || 'All systems nominal.',
+      };
+      try {
+        const res = await api('api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Preview failed');
+        document.getElementById('preview-output').textContent = data.message || '';
+        setStatus('Preview ready.');
+      } catch (err) {
+        console.error(err);
+        document.getElementById('preview-output').textContent = '';
+        setStatus('Preview failed.', false);
       }
     }
 
