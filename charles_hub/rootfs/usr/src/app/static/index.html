@@ -263,6 +263,8 @@
         <div><label for="quiet_start">Start</label><input type="time" id="quiet_start" value="22:00"></div>
         <div><label for="quiet_end">End</label><input type="time" id="quiet_end" value="07:00"></div>
       </div>
+      <div class="toggle" style="margin-top:6px;"><input type="checkbox" id="quiet_feed_suppress"><label for="quiet_feed_suppress">Suppress feed during quiet hours</label></div>
+      <div class="note" id="quiet-note"></div>
       <div class="toggle" style="margin-top:6px; gap:10px;">
         <button class="secondary" id="pause-all" onclick="toggleGlobalPause()">Pause all</button>
         <span class="note" id="pause-all-note"></span>
@@ -547,6 +549,8 @@
         const ca = document.getElementById('conversation_agent'); if (ca) ca.value = st.conversation_agent_id || 'conversation.openai_conversation';
         const qs = document.getElementById('quiet_start'); if (qs) qs.value = st.quiet_hours_start || '22:00';
         const qe = document.getElementById('quiet_end'); if (qe) qe.value = st.quiet_hours_end || '07:00';
+        const qf = document.getElementById('quiet_feed_suppress'); if (qf) qf.checked = st.quiet_feed_suppress ?? false;
+        updateQuietNote();
         updateGlobalPauseButton(st.paused_all_until || 0);
         const wg = document.getElementById('weather_gap'); if (wg) wg.value = st.weather_min_gap ?? 0;
         const wd = document.getElementById('weather_delta'); if (wd) wd.value = st.weather_temp_delta ?? 5;
@@ -657,6 +661,7 @@
         conversation_agent_id: document.getElementById('conversation_agent').value.trim() || 'conversation.openai_conversation',
         quiet_hours_start: document.getElementById('quiet_start').value || '22:00',
         quiet_hours_end: document.getElementById('quiet_end').value || '07:00',
+        quiet_feed_suppress: document.getElementById('quiet_feed_suppress').checked,
         weather_min_gap: Number(document.getElementById('weather_gap').value) || 0,
         weather_temp_delta: Number(document.getElementById('weather_delta').value) || 0,
         weather_condition_change: document.getElementById('weather_condition').checked,
@@ -800,6 +805,12 @@
         const nextT = data.next_trivia_time ? new Date(data.next_trivia_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         const nextP = data.next_people_time ? new Date(data.next_people_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         document.getElementById('health-next').textContent = `Next musings: ${nextM} | Next jokes: ${nextJ} | Next trivia: ${nextT} | Next people: ${nextP}`;
+        const qNote = document.getElementById('quiet-note');
+        if (qNote) {
+          const qActive = data.quiet_active;
+          const qFeed = data.quiet_feed_suppress;
+          qNote.textContent = qActive ? `Quiet hours active. ${qFeed ? 'Feed suppressed.' : 'Notifications only suppressed.'}` : 'Quiet hours inactive now.';
+        }
         const cal = data.last_calendar_poll ? new Date(data.last_calendar_poll * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';
         document.getElementById('health-calendar').textContent = `Last calendar poll: ${cal}`;
         const wTs = data.last_weather_time ? new Date(data.last_weather_time * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'n/a';

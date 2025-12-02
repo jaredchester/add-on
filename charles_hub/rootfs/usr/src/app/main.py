@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.43")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.44")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -89,6 +89,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
     },
         "quiet_hours_start": options.get("quiet_hours_start", "22:00"),
         "quiet_hours_end": options.get("quiet_hours_end", "07:00"),
+        "quiet_feed_suppress": options.get("quiet_feed_suppress", False),
         "weather_min_gap": options.get("weather_min_gap", 3600),
         "weather_temp_delta": options.get("weather_temp_delta", 5),
         "weather_condition_change": options.get("weather_condition_change", True),
@@ -764,6 +765,7 @@ async def root_page() -> HTMLResponse:
 @app.get("/api/health")
 async def health() -> Dict[str, Any]:
     async with state_lock:
+        quiet_active = in_quiet_hours(time.time())
         return {
             "status": "ok",
             "last_emit": state.get("last_emit", {}),
@@ -782,6 +784,8 @@ async def health() -> Dict[str, Any]:
             "weather_condition_change": state.get("weather_condition_change", True),
             "weather_feed_only_minor": state.get("weather_feed_only_minor", False),
             "weather_poll_route": state.get("weather_poll_route", "feed"),
+            "quiet_active": quiet_active,
+            "quiet_feed_suppress": state.get("quiet_feed_suppress", False),
         }
 
 
@@ -929,6 +933,8 @@ async def process_emit(
         and feed_category_allowed(category)
     )
     quiet = in_quiet_hours(time.time())
+    if quiet and bool(state.get("quiet_feed_suppress", False)):
+        send_feed = False
     send_notify = (
         state.get("notifications_enabled", True)
         and resolved_route in {"notify", "both"}
