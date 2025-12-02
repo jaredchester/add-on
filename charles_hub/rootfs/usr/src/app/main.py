@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 DEFAULT_RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.45")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.46")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -63,6 +63,7 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
         "notify_tag": "charles_stream",
         "notify_title": "CHARLES says",
         "notify_cap_chars": notify_cap_chars,
+        "notify_caps": options.get("notify_caps", {}),
         "conversation_agent_id": "conversation.openai_conversation",
     "categories": {
         "weather": True,
@@ -181,11 +182,12 @@ def default_state(options: Dict[str, Any]) -> Dict[str, Any]:
             "musings": [],
             "trivia": [],
         },
-    "recent_outputs": {
-        "jokes": [],
-        "musings": [],
-        "trivia": [],
-    },
+        "recent_outputs": {
+            "jokes": [],
+            "musings": [],
+            "trivia": [],
+        },
+        "recent_outputs_general": [],
 }
 
 
@@ -199,13 +201,16 @@ async def load_state() -> None:
     # trim recents to limit
     rec_seeds = merged.get("recent_seeds", {})
     rec_outputs = merged.get("recent_outputs", {})
+    rec_outputs_general = merged.get("recent_outputs_general", [])
     for key in ["jokes", "musings", "trivia"]:
         if key in rec_seeds:
             rec_seeds[key] = rec_seeds[key][:rl]
         if key in rec_outputs:
             rec_outputs[key] = rec_outputs[key][:rl]
+    rec_outputs_general = rec_outputs_general[:rl]
     merged["recent_seeds"] = rec_seeds
     merged["recent_outputs"] = rec_outputs
+    merged["recent_outputs_general"] = rec_outputs_general
     state = merged
     write_json(DATA_PATH, state)
 
@@ -818,6 +823,7 @@ async def update_state(payload: Dict[str, Any]) -> Dict[str, Any]:
                 rec_seeds[key] = rec_seeds[key][:limit]
             if key in rec_outputs:
                 rec_outputs[key] = rec_outputs[key][:limit]
+        state["recent_outputs_general"] = (state.get("recent_outputs_general", []) or [])[:limit]
         state["recent_seeds"] = rec_seeds
         state["recent_outputs"] = rec_outputs
         await persist_state()
@@ -918,6 +924,10 @@ async def process_emit(
     if not force and is_paused(category):
         return {"status": "paused", "route": resolved_route}
 
+    if category.lower() not in {"jokes", "musings", "trivia"} and not force:
+        if await is_similar_general(context):
+            return {"status": "throttled", "route": resolved_route, "reason": "similar"}
+
     agent_prompt = prompt_override or state.get("persona_prompt", DEFAULT_PROMPT)
     agent_id = state.get("conversation_agent_id", "conversation.openai_conversation")
 
@@ -963,6 +973,15 @@ async def process_emit(
     if send_notify:
         existing_unread = state.get("unread_log", [])
         notify_message = build_notify_summary(message_text, existing_unread)
+        caps = state.get("notify_caps", {})
+        cap_override = caps.get(category.lower())
+        if cap_override:
+            try:
+                cap_val = int(cap_override)
+                if cap_val > 0 and len(notify_message) > cap_val:
+                    notify_message = notify_message[: max(0, cap_val - 3)] + "..."
+            except Exception:
+                pass
         notify_service = notify_service_override or state.get("notify_service", "notify.mobile_app_pixel_9")
         notify_tag = notify_tag_override or state.get("notify_tag", "charles_stream")
         notify_title = notify_title_override or state.get("notify_title", "CHARLES says")
@@ -986,6 +1005,11 @@ async def process_emit(
             state["unread_count"] = int(state.get("unread_count", 0)) + 1
         if category.lower() in {"jokes", "musings", "trivia"}:
             push_recent(category.lower(), seed_tag, message_text)
+        else:
+            limit = int(state.get("recent_limit", DEFAULT_RECENT_LIMIT))
+            ro = state.setdefault("recent_outputs_general", [])
+            ro.insert(0, message_text[:200])
+            del ro[limit:]
         if category.lower() == "arrivals" and group_key:
             arrivals = state.setdefault("arrival_groups", {})
             arrivals[group_key] = {
@@ -1041,6 +1065,20 @@ async def is_similar_output(category: str, candidate: str) -> bool:
             overlap = len(tokens & rtokens) / max(len(tokens), len(rtokens))
             if overlap >= 0.6:
                 return True
+    return False
+
+
+async def is_similar_general(candidate: str) -> bool:
+    norm = normalize_text(candidate)
+    async with state_lock:
+        recents = list(state.get("recent_outputs_general", []))
+    for recent in recents:
+        rnorm = normalize_text(recent)
+        if not rnorm:
+            continue
+        ratio = difflib.SequenceMatcher(None, norm, rnorm).ratio()
+        if ratio >= 0.9:
+            return True
     return False
 
 
