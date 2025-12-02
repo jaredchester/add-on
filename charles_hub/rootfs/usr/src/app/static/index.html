@@ -763,14 +763,14 @@
         if (!res.ok) throw new Error(data.detail || 'Pause failed');
         const until = data.paused_until ? new Date(data.paused_until * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'cleared';
         setStatus(`Pause updated for ${cat}: ${until}`);
-        const pauses = currentState.pauses || {};
+        const newPauses = currentState.pauses || {};
         if (data.paused_until && data.paused_until > 0) {
-          pauses[cat] = data.paused_until;
+          newPauses[cat] = data.paused_until;
         } else {
-          delete pauses[cat];
+          delete newPauses[cat];
         }
-        currentState.pauses = pauses;
-        updatePauseButton(cat, pauses);
+        currentState.pauses = newPauses;
+        updatePauseButton(cat, newPauses);
       } catch (err) {
         console.error(err);
         setStatus('Pause update failed.', false);
