@@ -345,6 +345,19 @@ def build_notify_summary(current: str, existing_unread: List[str]) -> str:
     return out
 
 
+def normalize_pool(val: Any) -> List[str]:
+    if isinstance(val, list):
+        items: List[str] = []
+        for item in val:
+            if isinstance(item, str):
+                parts = [p.strip() for p in item.splitlines() if p.strip()]
+                items.extend(parts)
+        return items
+    if isinstance(val, str):
+        return [p.strip() for p in val.splitlines() if p.strip()]
+    return []
+
+
 async def build_people_context() -> str:
     token = os.getenv("SUPERVISOR_TOKEN")
     entities = state.get("people_entities", []) or []
@@ -488,7 +501,7 @@ async def build_quick_context(category: str, excluded_seeds: Optional[List[str]]
     if cat == "calendar":
         return ("Share today's and tomorrow's upcoming calendar items briefly.", "calendar", None)
     if cat == "musings":
-        pool: List[str] = st.get("musing_pool") or []
+        pool: List[str] = normalize_pool(st.get("musing_pool") or [])
         seed = choose_seed_ex("musings", pool, excluded_seeds)
         if seed:
             return (f"Seed: {seed}\nRespond with one short, wry musing inspired by this seed. Keep it to one or two sentences. Avoid repeating earlier musings today.", "musings", seed)
@@ -564,11 +577,11 @@ async def build_brief() -> str:
 
     seed = ""
     if seed_source in {"musing", "both"}:
-        pool = state.get("musing_pool") or []
+        pool = normalize_pool(state.get("musing_pool") or [])
         if pool:
             seed = random.choice(pool)
     if not seed and seed_source in {"trivia", "both"}:
-        pool = state.get("trivia_pool") or []
+        pool = normalize_pool(state.get("trivia_pool") or [])
         if pool:
             seed = random.choice(pool)
     if seed:
@@ -1580,6 +1593,7 @@ async def presence_poll_loop() -> None:
                         "category_override": "people",
                         "route": "default",
                         "topic": "people",
+                        "combine_window": int(state.get("arrival_combine_window", 300) or 300),
                     }
                     await handle_arrival_emit(payload)
             await asyncio.sleep(interval)
