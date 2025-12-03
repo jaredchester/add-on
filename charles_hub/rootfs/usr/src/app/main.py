@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 DEFAULT_RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.53")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.54")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -1048,7 +1048,7 @@ async def process_emit(
             ro = state.setdefault("recent_outputs_general", [])
             ro.insert(0, message_text[:200])
             del ro[limit:]
-        if category.lower() == "arrivals" and group_key:
+        if category.lower() in {"arrivals", "people"} and group_key:
             arrivals = state.setdefault("arrival_groups", {})
             arrivals[group_key] = {
                 "ts": now_ts,
