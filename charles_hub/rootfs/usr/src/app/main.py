@@ -27,7 +27,7 @@ DEFAULT_PROMPT = (
     "a sardonic, witty butler. Reply in one short sentence."
 )
 DEFAULT_RECENT_LIMIT = 10
-ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.52")
+ADDON_VERSION = os.getenv("ADDON_VERSION", "0.9.53")
 
 app = FastAPI(title="CHARLES Hub API", root_path=ROOT_PATH, openapi_url=None, docs_url=None)
 if STATIC_DIR.exists():
@@ -1305,15 +1305,16 @@ async def list_entities(domain: str) -> Dict[str, Any]:
 async def handle_arrival_emit(payload: Dict[str, Any]) -> Dict[str, Any]:
     name = payload.get("name") or payload.get("arrival_name") or payload.get("person")
     location = payload.get("location") or payload.get("arrival_location") or payload.get("topic", "home")
-    group_key = payload.get("group_key") or location
+    group_key = (payload.get("group_key") or location or "people").strip().lower()
     context = payload.get("context") or f"{name or 'Someone'} arrived at {location}."
     category_override = payload.get("category_override")
+    topic_val = payload.get("topic") or "people"
     delay = int(state.get("arrival_emit_delay", 0))
     combine_window = int(state.get("arrival_combine_window", 300))
     now_ts = time.time()
     if delay <= 0:
         return await process_emit(
-            topic=payload.get("topic", location),
+            topic=topic_val,
             category=category_override or "arrivals",
             context=context,
             route_raw=payload.get("route", "default"),
@@ -1374,7 +1375,7 @@ async def arrival_pending_loop() -> None:
                 if len(names) > 1:
                     ctx = f"{', '.join(names)} arrived at {location} within the last few minutes."
                 await process_emit(
-                    topic=location,
+                    topic="people",
                     category=entry.get("category_override") or "arrivals",
                     context=ctx,
                     route_raw=entry.get("route", "default"),
@@ -1578,6 +1579,7 @@ async def presence_poll_loop() -> None:
                         "context": ctx,
                         "category_override": "people",
                         "route": "default",
+                        "topic": "people",
                     }
                     await handle_arrival_emit(payload)
             await asyncio.sleep(interval)
